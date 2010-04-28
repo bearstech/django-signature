@@ -3,7 +3,7 @@ from setuptools import setup
 
 
 
-readme = open(os.path.join(os.path.dirname(__file__), 'README.txt')).read()
+readme = open(os.path.join(os.path.dirname(__file__), 'README')).read()
 
 setup(
         name     = 'django-signature',
