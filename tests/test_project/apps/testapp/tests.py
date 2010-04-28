@@ -8,6 +8,7 @@ from subprocess import Popen, PIPE
 import shlex
 from M2Crypto import m2, ASN1, RSA, EVP, X509
 
+from datetime import datetime
 
 from tempfile import NamedTemporaryFile, TemporaryFile
 
@@ -146,38 +147,14 @@ class M2TestCase(TestCase):
         ca_pkey = EVP.PKey(md='sha1')
         ca_pkey.assign_rsa(ca_keys)
 
+        before = datetime(2000, 01, 01)
+        after = datetime(2015, 01, 01)
+
+
         # Request
         rqst = X509.Request()
-        rqstname = X509.X509_Name()
         MBSTRING_FLAG = 0x1000
         MBSTRING_ASC  = MBSTRING_FLAG | 1
-        rqstname.add_entry_by_txt(field='C',type=MBSTRING_ASC, entry='austria', len=-1, loc=-1, set=0 )    # country name
-        rqstname.add_entry_by_txt(field='SP',type=MBSTRING_ASC, entry='kernten', len=-1, loc=-1, set=0 )    # state of province name
-        rqstname.add_entry_by_txt(field='L', type=MBSTRING_ASC, entry='stgallen', len=-1, loc=-1, set=0 )    # locality name
-        rqstname.add_entry_by_txt(field='O', type=MBSTRING_ASC, entry='labor', len=-1, loc=-1, set=0 )    # organization name
-        rqstname.add_entry_by_txt(field='OU', type=MBSTRING_ASC, entry='it-department', len=-1, loc=-1, set=0 )    # organizational unit name
-        rqstname.add_entry_by_txt(field='CN', type=MBSTRING_ASC, entry='Certificate client',len=-1, loc=-1, set=0 )    # common name
-        rqstname.add_entry_by_txt(field='Email', type=MBSTRING_ASC, entry='user@localhost', len=-1, loc=-1, set=0 )    # pkcs9 email address
-        rqstname.add_entry_by_txt(field='emailAddress', type=MBSTRING_ASC, entry='user@localhost', len=-1, loc=-1, set=0 )    # pkcs9 email address
-        rqst.set_subject_name(rqstname)
-
-        rqst.set_pubkey(ca_pkey)
-        rqst.sign(pkey=ca_pkey, md='sha1')
-        print rqst.as_text()
-
-        # Make certificate
-        ca_cert = X509.X509()
-        ca_cert.set_version(0)
-        asn1 = ASN1.ASN1_UTCTIME()
-        asn1.set_time(500)
-        ca_cert.set_not_before(asn1)
-        asn1 = ASN1.ASN1_UTCTIME()
-        asn1.set_time(500)
-        ca_cert.set_not_after(asn1)
-        ca_cert.set_pubkey(ca_pkey)
-
-        rqst_name = rqst.get_subject()
-        ca_cert.set_subject_name(rqst_name)
         ca_name = X509.X509_Name(m2.x509_name_new())
         ca_name.add_entry_by_txt(field='C',type=MBSTRING_ASC, entry='fr', len=-1, loc=-1, set=0 )    # country name
         ca_name.add_entry_by_txt(field='SP',type=MBSTRING_ASC, entry='idf', len=-1, loc=-1, set=0 )    # state of province name
@@ -187,6 +164,25 @@ class M2TestCase(TestCase):
         ca_name.add_entry_by_txt(field='CN', type=MBSTRING_ASC, entry='Certificate Auth',len=-1, loc=-1, set=0 )    # common name
         ca_name.add_entry_by_txt(field='Email', type=MBSTRING_ASC, entry='admin@localhost', len=-1, loc=-1, set=0 )    # pkcs9 email address
         ca_name.add_entry_by_txt(field='emailAddress', type=MBSTRING_ASC, entry='admin@localhost', len=-1, loc=-1, set=0 )    # pkcs9 email address
+        rqst.set_subject_name(ca_name)
+
+        rqst.set_pubkey(ca_pkey)
+        rqst.sign(pkey=ca_pkey, md='sha1')
+        print rqst.as_text()
+
+        # Make certificate
+        ca_cert = X509.X509()
+        ca_cert.set_version(0)
+        asn1 = ASN1.ASN1_UTCTIME()
+        asn1.set_datetime(before)
+        ca_cert.set_not_before(asn1)
+        asn1 = ASN1.ASN1_UTCTIME()
+        asn1.set_datetime(after)
+        ca_cert.set_not_after(asn1)
+        ca_cert.set_pubkey(ca_pkey)
+
+        rqst_name = rqst.get_subject()
+        ca_cert.set_subject_name(rqst_name)
 
         ca_cert.set_issuer_name(ca_name)
         ca_cert.sign(ca_pkey, md='sha1')
@@ -194,12 +190,13 @@ class M2TestCase(TestCase):
         print ca_cert.as_text()
 
         # Make client cert
-        # Generate CA Key
+        #
+        # Generate Client Key
         c_keys = RSA.gen_key(4096, 0x10001)
         c_pkey = EVP.PKey(md='sha1')
         c_pkey.assign_rsa(c_keys)
 
-        # Request
+        # Make client Request
         rqst = X509.Request()
         rqstname = X509.X509_Name()
         MBSTRING_FLAG = 0x1000
@@ -220,31 +217,21 @@ class M2TestCase(TestCase):
         print rqst.as_text()
 
 
-        # Make certificate
+        # Make Client certificate
         c_cert = X509.X509()
         c_cert.set_version(0)
+        c_cert.set_serial_number(0)
         asn1 = ASN1.ASN1_UTCTIME()
-        asn1.set_time(500)
+        asn1.set_datetime(before)
         c_cert.set_not_before(asn1)
         asn1 = ASN1.ASN1_UTCTIME()
-        asn1.set_time(500)
+        asn1.set_datetime(after)
         c_cert.set_not_after(asn1)
         c_cert.set_pubkey(ca_pkey)
 
         rqst_name = rqst.get_subject()
-        ca_cert.set_subject_name(rqst_name)
-        ca_name = X509.X509_Name(m2.x509_name_new())
-        ca_name.add_entry_by_txt(field='C',type=MBSTRING_ASC, entry='fr', len=-1, loc=-1, set=0 )    # country name
-        ca_name.add_entry_by_txt(field='SP',type=MBSTRING_ASC, entry='idf', len=-1, loc=-1, set=0 )    # state of province name
-        ca_name.add_entry_by_txt(field='L', type=MBSTRING_ASC, entry='Paris', len=-1, loc=-1, set=0 )    # locality name
-        ca_name.add_entry_by_txt(field='O', type=MBSTRING_ASC, entry='bt', len=-1, loc=-1, set=0 )    # organization name
-        ca_name.add_entry_by_txt(field='OU', type=MBSTRING_ASC, entry='bt-france', len=-1, loc=-1, set=0 )    # organizational unit name
-        ca_name.add_entry_by_txt(field='CN', type=MBSTRING_ASC, entry='Certificate Auth',len=-1, loc=-1, set=0 )    # common name
-        ca_name.add_entry_by_txt(field='Email', type=MBSTRING_ASC, entry='admin@localhost', len=-1, loc=-1, set=0 )    # pkcs9 email address
-        ca_name.add_entry_by_txt(field='emailAddress', type=MBSTRING_ASC, entry='admin@localhost', len=-1, loc=-1, set=0 )    # pkcs9 email address
-
-        #c_cert.set_issuer_name(ca_name)
-        c_cert.set_issuer_name(rqstname)
+        c_cert.set_subject_name(rqst_name)
+        c_cert.set_issuer_name(ca_name)
         c_cert.sign(ca_pkey, md='sha1')
         print "Signed"
         print c_cert.as_pem()
@@ -254,3 +241,9 @@ class M2TestCase(TestCase):
         f = open("/home/cyberj/tmp/ssl/ca.crt", "w")
         f.write(ca_cert.as_pem())
         f.close()
+        verify = getoutput("openssl verify -CAfile /home/cyberj/tmp/ssl/ca.crt /home/cyberj/tmp/ssl/ca.crt")
+        print verify
+        self.assertTrue("OK" in verify)
+        verify = getoutput("openssl verify -CAfile /home/cyberj/tmp/ssl/ca.crt /home/cyberj/tmp/ssl/c.crt")
+        print verify
+        self.assertTrue("OK" in verify)
