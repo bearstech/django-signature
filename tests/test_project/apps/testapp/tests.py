@@ -247,3 +247,14 @@ class M2TestCase(TestCase):
         verify = getoutput("openssl verify -CAfile /home/cyberj/tmp/ssl/ca.crt /home/cyberj/tmp/ssl/c.crt")
         print verify
         self.assertTrue("OK" in verify)
+
+        # OK, certificate are generated and are OK
+        #
+        # We have :
+        # ca_key = CA Private Key
+        # ca_cert = CA Certificate
+        # ca_key = Client Private key
+        # c_cert = Client Certificate signed by CA root
+        #
+        # It's time to sign/verify
+        # reminder : http://sandbox.rulemaker.net/ngps/m2/howto.smime.html
