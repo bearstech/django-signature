@@ -1,0 +1,24 @@
+django-signature
+================
+
+Application to generate ssl certificates and sign models
+
+Features :
+----------
+
+ - None
+
+Todo :
+------
+
+ - All
+
+Tests :
+-------
+
+ - cd tests
+ - python bootstrap.py
+ - ./bin/buildout.py -v
+ - ./bin/test-1.1 or ./bin/test-1.0
+
+  
