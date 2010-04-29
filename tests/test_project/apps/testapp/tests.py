@@ -216,7 +216,7 @@ class M2TestCase(TestCase):
 
         sub = rqst.get_subject()
         c_cert.set_subject(sub)
-        c_cert.set_pubkey(ca_pkey)
+        c_cert.set_pubkey(c_pkey)
         ca_name = X509.X509_Name()
         ca_name.C = "FR"
         ca_name.CN = "Certificate Auth"
@@ -224,16 +224,22 @@ class M2TestCase(TestCase):
         c_cert.sign(ca_pkey, md='sha1')
         print "Signed"
         print c_cert.as_text()
+
+        # Somes checks with openssl
         c_cert.save_pem("/home/cyberj/tmp/ssl/c.crt")
         ca_cert.save_pem("/home/cyberj/tmp/ssl/ca.crt")
+        # Verifiy CA with itself
         verify = getoutput("openssl verify -CAfile /home/cyberj/tmp/ssl/ca.crt /home/cyberj/tmp/ssl/ca.crt")
         print verify
         self.assertTrue("OK" in verify)
+        # Verifiy client cert with CA
         verify = getoutput("openssl verify -CAfile /home/cyberj/tmp/ssl/ca.crt /home/cyberj/tmp/ssl/c.crt")
         print verify
         self.assertTrue("OK" in verify)
         from M2Crypto.util import no_passphrase_callback
-        c_pkey.save_key("/home/cyberj/tmp/ssl/c_pkey.pem", cipher=None, callback=no_passphrase_callback)
+        #c_keys.save_key("/home/cyberj/tmp/ssl/c_pkey.pem", cipher=None, callback=no_passphrase_callback)
+        c_keys.save_key("/home/cyberj/tmp/ssl/c_pkey.pem", cipher=None, callback=no_passphrase_callback)
+        ca_pkey.save_key("/home/cyberj/tmp/ssl/ca_pkey.pem", cipher=None, callback=no_passphrase_callback)
 
         # OK, certificate are generated and are OK
         #
@@ -249,13 +255,13 @@ class M2TestCase(TestCase):
 
         from M2Crypto import BIO, SMIME
         text = "This is a data"
-        f = open('/home/cyberj/tmp/ssl/sign.pem', 'w')
-        buf = BIO.File(f)
-        buf.write(text)
+        #f = open('/home/cyberj/tmp/ssl/sign.pem', 'w')
+        buf = BIO.MemoryBuffer(text)
         s = SMIME.SMIME()
+        #s.load_key('/home/cyberj/tmp/ssl/c_pkey.pem', '/home/cyberj/tmp/ssl/c.crt')
         s.pkey = c_pkey
         s.x509 = c_cert
-        s.sign(buf)
+        s.sign(buf, SMIME.PKCS7_DETACHED)
         #print s.read()
 
 
