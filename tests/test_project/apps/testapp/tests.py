@@ -20,6 +20,8 @@ def getoutput(cmd, stdin=PIPE):
 
 class RawTestCase(TestCase):
     """Tests with openssl lib
+
+    Just for practice
     """
     def testCertificateGeneration(self):
         """Test SSL certificate generation
@@ -127,11 +129,12 @@ class RawTestCase(TestCase):
         self.assertTrue("OK" in verify)
         # XXX : FAIL !!!
 
-def getnone(*args):
-    return None
-
 class M2TestCase(TestCase):
     """Tests with m2Crypto lib
+
+    http://chandlerproject.org/bin/view/Projects/MeTooCrypto
+
+    Theses tests are built with help of M2Crypto's testsuite
     """
     def testCertificateGeneration(self):
         """Test SSL certificate generation
@@ -139,58 +142,58 @@ class M2TestCase(TestCase):
         CA_pwd = "toto"
         user_pwd = "tata"
         my_text = "Something really interesting"
+        before = datetime(2000, 01, 01)
+        after = datetime(2015, 01, 01)
 
-        # Generate Self Signed CA
+        # Generate Self Signed CA #
         #
-
         # Generate CA Key
         ca_keys = RSA.gen_key(4096, 0x10001)
         ca_pkey = EVP.PKey(md='sha1')
         ca_pkey.assign_rsa(ca_keys)
 
-        before = datetime(2000, 01, 01)
-        after = datetime(2015, 01, 01)
-
-        # Request
+        # Generate CA Request
         rqst = X509.Request()
         ca_name = rqst.get_subject()
         ca_name.C = "FR"
         ca_name.CN = "Certificate Auth"
-        #rqst.set_subject_name(ca_name)
-
         rqst.set_pubkey(ca_pkey)
+        # Sign request
         rqst.sign(pkey=ca_pkey, md='sha1')
         print rqst.as_text()
 
-        # Make certificate
+        # Make CA's self-signed certificate with CA request
         ca_cert = X509.X509()
         ca_cert.set_version(2)
+        # Set certificate expiration
         asn1 = ASN1.ASN1_UTCTIME()
         asn1.set_datetime(before)
         ca_cert.set_not_before(asn1)
         asn1 = ASN1.ASN1_UTCTIME()
         asn1.set_datetime(after)
         ca_cert.set_not_after(asn1)
-
+        # Use CA pubkey
         ca_cert.set_pubkey(ca_pkey)
+        # Self signed : subject = issuer
         ca_cert.set_subject_name(ca_name)
         ca_cert.set_issuer_name(ca_name)
+        # Add CA Constraint
         ext = X509.new_extension('basicConstraints', 'CA:TRUE')
         ca_cert.add_ext(ext)
-
+        # Sign CA with CA's privkey
         ca_cert.sign(ca_pkey, md='sha1')
         print "CA"
         print ca_cert.as_text()
         self.assertTrue(ca_cert.check_ca())
 
-        # Make client cert
+        # Make client Certificate #
         #
         # Generate Client Key
         c_keys = RSA.gen_key(4096, 0x10001)
         c_pkey = EVP.PKey(md='sha1')
         c_pkey.assign_rsa(c_keys)
 
-        # Make client Request
+        # Generate client Request
         rqst = X509.Request()
         rqst_name = rqst.get_subject()
         rqst_name.C = "FR"
@@ -198,29 +201,33 @@ class M2TestCase(TestCase):
         rqst_name.O = "My Big Company"
         rqst.set_pubkey(c_pkey)
         rqst.set_subject_name(rqst_name)
-
+        # Sign request
         rqst.sign(pkey=c_pkey, md='sha1')
         print "Client"
         print rqst.as_text()
 
-        # Make Client certificate
+        # Make Client certificate with CA's key
         c_cert = X509.X509()
         c_cert.set_version(2)
         c_cert.set_serial_number(0)
+        # Set certificate expiration
         asn1 = ASN1.ASN1_UTCTIME()
         asn1.set_datetime(before)
         c_cert.set_not_before(asn1)
         asn1 = ASN1.ASN1_UTCTIME()
         asn1.set_datetime(after)
         c_cert.set_not_after(asn1)
-
+        # Get subject from request
         sub = rqst.get_subject()
         c_cert.set_subject(sub)
+        # use client pubkey
         c_cert.set_pubkey(c_pkey)
+        # issuer = CA
         ca_name = X509.X509_Name()
         ca_name.C = "FR"
         ca_name.CN = "Certificate Auth"
         c_cert.set_issuer(ca_name)
+        # Sign Certificate with CA key
         c_cert.sign(ca_pkey, md='sha1')
         print "Signed"
         print c_cert.as_text()
@@ -237,7 +244,6 @@ class M2TestCase(TestCase):
         print verify
         self.assertTrue("OK" in verify)
         from M2Crypto.util import no_passphrase_callback
-        #c_keys.save_key("/home/cyberj/tmp/ssl/c_pkey.pem", cipher=None, callback=no_passphrase_callback)
         c_keys.save_key("/home/cyberj/tmp/ssl/c_pkey.pem", cipher=None, callback=no_passphrase_callback)
         ca_pkey.save_key("/home/cyberj/tmp/ssl/ca_pkey.pem", cipher=None, callback=no_passphrase_callback)
 
@@ -256,17 +262,19 @@ class M2TestCase(TestCase):
         from M2Crypto import BIO, SMIME
         text = "This is a data"
         buf = BIO.MemoryBuffer(text)
+        # Set context
         s = SMIME.SMIME()
         s.pkey = c_pkey
         s.x509 = c_cert
         # Sign
         p7 = s.sign(buf, SMIME.PKCS7_DETACHED)
-        # Write out signature
-        out = BIO.MemoryBuffer()
-        #p7.write(out)
         # write content + signature
+        out = BIO.MemoryBuffer()
         s.write(out, p7, BIO.MemoryBuffer(text))
+        # get data signed
         data_signed = out.read()
+        # data_signed is like : http://friendpaste.com/3fi7Ub8c2jYLxUR2f7wQ68
+        # Save signed for tests
         f = open("/home/cyberj/tmp/ssl/signed.mime", 'w')
         f.write(data_signed)
         f.close()
@@ -288,8 +296,8 @@ class M2TestCase(TestCase):
         print data
         print p7
         bio_data_wrong = BIO.MemoryBuffer("This is not a data")
-        bio_data = BIO.MemoryBuffer("This is a data")
+        #bio_data = BIO.MemoryBuffer("This is a data")
         verified = s.verify(p7, data)
         print verified
 
-        s.verify(p7, bio_data_wrong) # WTF Segfault ???
+        s.verify(p7, bio_data_wrong) # XXX : WTF Segfault ???
