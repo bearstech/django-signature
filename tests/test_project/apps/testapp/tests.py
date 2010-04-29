@@ -255,13 +255,41 @@ class M2TestCase(TestCase):
 
         from M2Crypto import BIO, SMIME
         text = "This is a data"
-        #f = open('/home/cyberj/tmp/ssl/sign.pem', 'w')
         buf = BIO.MemoryBuffer(text)
         s = SMIME.SMIME()
-        #s.load_key('/home/cyberj/tmp/ssl/c_pkey.pem', '/home/cyberj/tmp/ssl/c.crt')
         s.pkey = c_pkey
         s.x509 = c_cert
-        s.sign(buf, SMIME.PKCS7_DETACHED)
-        #print s.read()
+        # Sign
+        p7 = s.sign(buf, SMIME.PKCS7_DETACHED)
+        # Write out signature
+        out = BIO.MemoryBuffer()
+        #p7.write(out)
+        # write content + signature
+        s.write(out, p7, BIO.MemoryBuffer(text))
+        data_signed = out.read()
+        f = open("/home/cyberj/tmp/ssl/signed.mime", 'w')
+        f.write(data_signed)
+        f.close()
 
+        # Check
+        print "Check"
+        s = SMIME.SMIME()
+        # Adds client crt
+        sk = X509.X509_Stack()
+        sk.push(c_cert)
+        s.set_x509_stack(sk)
+        # Adds CA crt
+        st = X509.X509_Store()
+        st.add_x509(ca_cert)
+        s.set_x509_store(st)
+        # Get data and p7 from data_signed
+        bio_data_signed = BIO.MemoryBuffer(data_signed)
+        p7, data = SMIME.smime_load_pkcs7_bio(bio_data_signed)
+        print data
+        print p7
+        bio_data_wrong = BIO.MemoryBuffer("This is not a data")
+        bio_data = BIO.MemoryBuffer("This is a data")
+        verified = s.verify(p7, data)
+        print verified
 
+        s.verify(p7, bio_data_wrong) # WTF Segfault ???
