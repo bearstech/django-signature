@@ -12,7 +12,7 @@ from datetime import datetime
 
 from tempfile import NamedTemporaryFile, TemporaryFile
 
-from signature.models import Key
+from signature.models import Key, Certificate
 
 def getoutput(cmd, stdin=PIPE):
     cmd = shlex.split(cmd)
@@ -313,20 +313,27 @@ class M2TestCase(TestCase):
 class SignatureTestCase(TestCase):
     """Tests with django Signature + M2Cryto
     """
-    def testKeyGeneration(self):
-        """Test Key pair generation
+    def testKeyGenerationPrivate(self):
+        """Test Private Key pair generation
         """
-        CA_pwd = "toto"
         user_pwd = "tata"
-        my_text = "Something really interesting"
-
-        k = Key.generate("toto")
+        k = Key.generate(user_pwd)
         k.save()
         self.assertTrue("-----BEGIN RSA PRIVATE KEY-----" in k.private)
+        self.assertTrue("ENCRYPTED" in k.private)
+        self.assertTrue("-----BEGIN PUBLIC KEY-----" in k.public)
+
+    def testKeyGeneration(self):
+        """Test Key pair generation without encryption
+        """
+        k = Key.generate(None)
+        k.save()
+        self.assertTrue("-----BEGIN RSA PRIVATE KEY-----" in k.private)
+        self.assertTrue("ENCRYPTED" not in k.private)
         self.assertTrue("-----BEGIN PUBLIC KEY-----" in k.public)
 
     def testSelfCertificateGeneration(self):
         """With a Key, try to generate a self-signed certificate
         """
         pass
-        #Certificate.new_x509(key, selfsigned=True, ca=False)
+        #Certificate.new_x509(key, root=True, ca=False)
