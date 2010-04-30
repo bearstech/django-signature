@@ -12,6 +12,8 @@ from datetime import datetime
 
 from tempfile import NamedTemporaryFile, TemporaryFile
 
+from signature.models import Key
+
 def getoutput(cmd, stdin=PIPE):
     cmd = shlex.split(cmd)
     a =  Popen(cmd, stdout=PIPE, stderr=PIPE, stdin=stdin).communicate()
@@ -250,6 +252,7 @@ class M2TestCase(TestCase):
         self.assertTrue("OK" in verify)
         #from M2Crypto.util import no_passphrase_callback
         #c_keys.save_key("/home/cyberj/tmp/ssl/c_pkey.pem", cipher=None, callback=no_passphrase_callback)
+        #c_keys.save_key_bio(biog, cipher=None, callback=no_passphrase_callback)
         #ca_pkey.save_key("/home/cyberj/tmp/ssl/ca_pkey.pem", cipher=None, callback=no_passphrase_callback)
 
         # OK, certificate are generated and are OK
@@ -266,12 +269,12 @@ class M2TestCase(TestCase):
 
         from M2Crypto import BIO, SMIME
         text = "This is a data"
-        buf = BIO.MemoryBuffer(text)
         # Set context
         s = SMIME.SMIME()
         s.pkey = c_pkey
         s.x509 = c_cert
         # Sign
+        buf = BIO.MemoryBuffer(text)
         p7 = s.sign(buf, SMIME.PKCS7_DETACHED)
         # write content + signature
         out = BIO.MemoryBuffer()
@@ -280,9 +283,9 @@ class M2TestCase(TestCase):
         data_signed = out.read()
         # data_signed is like : http://friendpaste.com/3fi7Ub8c2jYLxUR2f7wQ68
         # Save signed for tests
-        f = open("/home/cyberj/tmp/ssl/signed.mime", 'w')
-        f.write(data_signed)
-        f.close()
+        #f = open("/home/cyberj/tmp/ssl/signed.mime", 'w')
+        #f.write(data_signed)
+        #f.close()
 
         # Check
         #print "Check"
@@ -300,9 +303,9 @@ class M2TestCase(TestCase):
         p7, data = SMIME.smime_load_pkcs7_bio(bio_data_signed)
         #print data
         #print p7
-        bio_data_wrong = BIO.MemoryBuffer("This is not a data")
-        #bio_data = BIO.MemoryBuffer("This is a data")
-        verified = s.verify(p7, data)
+        bio_data_wrong = BIO.MemoryBuffer("This is a duta")
+        bio_data = BIO.MemoryBuffer("This is a data")
+        verified = s.verify(p7, bio_data)
         #print verified
 
         #s.verify(p7, bio_data_wrong) # XXX : WTF Segfault ???
@@ -316,3 +319,14 @@ class SignatureTestCase(TestCase):
         CA_pwd = "toto"
         user_pwd = "tata"
         my_text = "Something really interesting"
+
+        k = Key.generate("toto")
+        k.save()
+        self.assertTrue("-----BEGIN RSA PRIVATE KEY-----" in k.private)
+        self.assertTrue("-----BEGIN PUBLIC KEY-----" in k.public)
+
+    def testSelfCertificateGeneration(self):
+        """With a Key, try to generate a self-signed certificate
+        """
+        pass
+        #Certificate.new_x509(key, selfsigned=True, ca=False)
