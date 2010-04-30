@@ -335,5 +335,4 @@ class SignatureTestCase(TestCase):
     def testSelfCertificateGeneration(self):
         """With a Key, try to generate a self-signed certificate
         """
-        pass
-        #Certificate.new_x509(key, root=True, ca=False)
+        cert = Certificate.new_x509_rootca(key)

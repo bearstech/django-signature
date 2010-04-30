@@ -52,16 +52,7 @@ class Certificate(models.Model):
     def new_x509_rootca(cls, privkey, passphrase):
         """Return self signed Certificate instance with an Key instance
         """
-        keys = RSA.gen_key(length, 0x10001, callback=quiet_callback)
-        key = cls()
-        key.length = length
-        bio = BIO.MemoryBuffer()
-        keys.save_pub_key_bio(bio)
-        key.public = bio.read()
-        # TODO : MUST BE SAVED WITH PASSPHRASE !!
-        keys.save_key_bio(bio, cipher=None, callback=no_passphrase_callback)
-        key.private = bio.read()
-        return key
+        return
 
 class Signature(models.Model):
     """A PKCS#7 signature for a model
