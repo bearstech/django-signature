@@ -136,6 +136,9 @@ class M2TestCase(TestCase):
 
     Theses tests are built with help of M2Crypto's testsuite
     """
+    def quiet_callback(*args):
+        return
+
     def testCertificateGeneration(self):
         """Test SSL certificate generation
         """
@@ -148,7 +151,7 @@ class M2TestCase(TestCase):
         # Generate Self Signed CA #
         #
         # Generate CA Key
-        ca_keys = RSA.gen_key(4096, 0x10001)
+        ca_keys = RSA.gen_key(4096, 0x10001, callback=self.quiet_callback)
         ca_pkey = EVP.PKey(md='sha1')
         ca_pkey.assign_rsa(ca_keys)
 
@@ -160,7 +163,7 @@ class M2TestCase(TestCase):
         rqst.set_pubkey(ca_pkey)
         # Sign request
         rqst.sign(pkey=ca_pkey, md='sha1')
-        print rqst.as_text()
+        #print rqst.as_text()
 
         # Make CA's self-signed certificate with CA request
         ca_cert = X509.X509()
@@ -182,14 +185,14 @@ class M2TestCase(TestCase):
         ca_cert.add_ext(ext)
         # Sign CA with CA's privkey
         ca_cert.sign(ca_pkey, md='sha1')
-        print "CA"
-        print ca_cert.as_text()
+        #print "CA"
+        #print ca_cert.as_text()
         self.assertTrue(ca_cert.check_ca())
 
         # Make client Certificate #
         #
         # Generate Client Key
-        c_keys = RSA.gen_key(4096, 0x10001)
+        c_keys = RSA.gen_key(4096, 0x10001, callback=self.quiet_callback)
         c_pkey = EVP.PKey(md='sha1')
         c_pkey.assign_rsa(c_keys)
 
@@ -203,8 +206,8 @@ class M2TestCase(TestCase):
         rqst.set_subject_name(rqst_name)
         # Sign request
         rqst.sign(pkey=c_pkey, md='sha1')
-        print "Client"
-        print rqst.as_text()
+        #print "Client"
+        #print rqst.as_text()
 
         # Make Client certificate with CA's key
         c_cert = X509.X509()
@@ -229,23 +232,25 @@ class M2TestCase(TestCase):
         c_cert.set_issuer(ca_name)
         # Sign Certificate with CA key
         c_cert.sign(ca_pkey, md='sha1')
-        print "Signed"
-        print c_cert.as_text()
+        #print "Signed"
+        #print c_cert.as_text()
 
         # Somes checks with openssl
-        c_cert.save_pem("/home/cyberj/tmp/ssl/c.crt")
-        ca_cert.save_pem("/home/cyberj/tmp/ssl/ca.crt")
+        c_cert_temp = NamedTemporaryFile()
+        ca_cert_temp = NamedTemporaryFile()
+        c_cert.save_pem(c_cert_temp.name)
+        ca_cert.save_pem(ca_cert_temp.name)
         # Verifiy CA with itself
-        verify = getoutput("openssl verify -CAfile /home/cyberj/tmp/ssl/ca.crt /home/cyberj/tmp/ssl/ca.crt")
-        print verify
+        verify = getoutput("openssl verify -CAfile %s %s" % (ca_cert_temp.name, ca_cert_temp.name))
+        #print verify
         self.assertTrue("OK" in verify)
         # Verifiy client cert with CA
-        verify = getoutput("openssl verify -CAfile /home/cyberj/tmp/ssl/ca.crt /home/cyberj/tmp/ssl/c.crt")
-        print verify
+        verify = getoutput("openssl verify -CAfile %s %s" % (ca_cert_temp.name, c_cert_temp.name))
+        #print verify
         self.assertTrue("OK" in verify)
-        from M2Crypto.util import no_passphrase_callback
-        c_keys.save_key("/home/cyberj/tmp/ssl/c_pkey.pem", cipher=None, callback=no_passphrase_callback)
-        ca_pkey.save_key("/home/cyberj/tmp/ssl/ca_pkey.pem", cipher=None, callback=no_passphrase_callback)
+        #from M2Crypto.util import no_passphrase_callback
+        #c_keys.save_key("/home/cyberj/tmp/ssl/c_pkey.pem", cipher=None, callback=no_passphrase_callback)
+        #ca_pkey.save_key("/home/cyberj/tmp/ssl/ca_pkey.pem", cipher=None, callback=no_passphrase_callback)
 
         # OK, certificate are generated and are OK
         #
@@ -280,7 +285,7 @@ class M2TestCase(TestCase):
         f.close()
 
         # Check
-        print "Check"
+        #print "Check"
         s = SMIME.SMIME()
         # Adds client crt
         sk = X509.X509_Stack()
@@ -293,11 +298,21 @@ class M2TestCase(TestCase):
         # Get data and p7 from data_signed
         bio_data_signed = BIO.MemoryBuffer(data_signed)
         p7, data = SMIME.smime_load_pkcs7_bio(bio_data_signed)
-        print data
-        print p7
+        #print data
+        #print p7
         bio_data_wrong = BIO.MemoryBuffer("This is not a data")
         #bio_data = BIO.MemoryBuffer("This is a data")
         verified = s.verify(p7, data)
-        print verified
+        #print verified
 
-        s.verify(p7, bio_data_wrong) # XXX : WTF Segfault ???
+        #s.verify(p7, bio_data_wrong) # XXX : WTF Segfault ???
+
+class SignatureTestCase(TestCase):
+    """Tests with django Signature + M2Cryto
+    """
+    def testKeyGeneration(self):
+        """Test Key pair generation
+        """
+        CA_pwd = "toto"
+        user_pwd = "tata"
+        my_text = "Something really interesting"
