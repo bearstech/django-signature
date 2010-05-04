@@ -71,12 +71,18 @@ class Certificate(models.Model):
     state = models.PositiveSmallIntegerField(choices=STATE_CHOICES, default=STATE_REQUEST)
     user = models.ForeignKey(User, null=True)
     key = models.ForeignKey(Key, null=True)
-    certificate = models.TextField(editable=False)
+    pem = models.TextField(editable=False)
     C = models.CharField(max_length=2)
     CN = models.CharField(max_length=50)
-    begin = models.DateTimeField(auto_now=True)
+    begin = models.DateTimeField()
     end = models.DateTimeField()
     issuer = models.ForeignKey('self', related_name='issuer_set', null=True)
+
+    def m2_x509(self):
+        """Return M2Crypto's x509 instance of certificate
+        """
+        cert = X509.load_cert_string(self.pem, X509.FORMAT_PEM)
+        return cert
 
     def generate_x509_rootca(self, passphrase=None):
         """Generate x509 certificate with instance informations
@@ -96,7 +102,7 @@ class Certificate(models.Model):
 
         # Make CA's self-signed certificate with CA request
         ca_cert = X509.X509()
-        ca_cert.set_version(2)
+        #ca_cert.set_version(2)
         # Set certificate expiration
         asn1 = ASN1.ASN1_UTCTIME()
         asn1.set_datetime(self.begin)
@@ -115,7 +121,22 @@ class Certificate(models.Model):
         # Sign CA with CA's privkey
         ca_cert.sign(ca_pkey, md='sha1')
         #print "CA"
-        self.certificate = ca_cert.as_pem()
+        self.pem = ca_cert.as_pem()
+
+    @classmethod
+    def new_from_pem(cls, pem, user=None):
+        """Create a Certificate Instance with an existing PEM
+        """
+        cert = cls(user=user)
+        x509 = X509.load_cert_string(pem, X509.FORMAT_PEM)
+        cert.pem = x509.as_pem()
+        issuer = x509.get_issuer()
+        cert.C = issuer.C
+        cert.CN = issuer.CN
+        cert.begin = x509.get_not_before().get_datetime()
+        cert.end = x509.get_not_after().get_datetime()
+        return cert
+
 
 class Signature(models.Model):
     """A PKCS#7 signature for a model

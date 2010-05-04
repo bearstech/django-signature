@@ -13,6 +13,8 @@ from datetime import datetime
 from tempfile import NamedTemporaryFile, TemporaryFile
 
 from signature.models import Key, Certificate
+from certificates import ROOT_CA
+
 
 def getoutput(cmd, stdin=PIPE):
     cmd = shlex.split(cmd)
@@ -353,5 +355,30 @@ class SignatureTestCase(TestCase):
         cert.end = after
         cert.generate_x509_rootca(user_pwd)
         cert.save()
-        cert_pem = cert.certificate
+        cert_pem = cert.pem
+
+        # Just test Certificate.m2_x509() method
         x509 = X509.load_cert_string(cert_pem, X509.FORMAT_PEM)
+        m2x509 = cert.m2_x509()
+        self.assertTrue(x509.as_text() == m2x509.as_text())
+
+        self.assertTrue("CA:TRUE" in m2x509.as_text())
+        self.assertTrue("Issuer: C=FR, CN=My CN" in m2x509.as_text())
+        self.assertTrue("Subject: C=FR, CN=My CN" in m2x509.as_text())
+        return cert_pem
+
+    def testCertificateLoading(self):
+        """With a Key, try to generate a self-signed certificate
+        """
+        before = datetime(2010, 01, 01, 6, tzinfo=ASN1.UTC)
+        after = datetime(2015, 01, 01, 6, tzinfo=ASN1.UTC)
+        x509_text = X509.load_cert_string(ROOT_CA, X509.FORMAT_PEM).as_text()
+
+        cert = Certificate.new_from_pem(ROOT_CA)
+        cert.save()
+        self.assertTrue(cert.CN == "My CN")
+        self.assertTrue(cert.C == "FR")
+        self.assertTrue(cert.begin == before)
+        self.assertTrue(cert.end == after)
+        cert_text = X509.load_cert_string(cert.pem, X509.FORMAT_PEM).as_text()
+        self.assertTrue(cert_text == x509_text)
