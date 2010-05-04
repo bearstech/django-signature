@@ -340,6 +340,18 @@ class SignatureTestCase(TestCase):
     def testSelfCertificateGeneration(self):
         """With a Key, try to generate a self-signed certificate
         """
-        key = Key.generate(None)
+        before = datetime(2010, 01, 01)
+        after = datetime(2015, 01, 01)
+        user_pwd = "tata"
+        key = Key.generate(user_pwd)
         key.save()
-        cert = Certificate.new_x509_rootca(key)
+        cert = Certificate()
+        cert.CN = "My CN"
+        cert.C = "FR"
+        cert.key = key
+        cert.begin = before
+        cert.end = after
+        cert.generate_x509_rootca(user_pwd)
+        cert.save()
+        cert_pem = cert.certificate
+        x509 = X509.load_cert_string(cert_pem, X509.FORMAT_PEM)

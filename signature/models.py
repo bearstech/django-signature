@@ -69,7 +69,7 @@ class Certificate(models.Model):
     )
 
     state = models.PositiveSmallIntegerField(choices=STATE_CHOICES, default=STATE_REQUEST)
-    user = models.ForeignKey(User)
+    user = models.ForeignKey(User, null=True)
     key = models.ForeignKey(Key, null=True)
     certificate = models.TextField(editable=False)
     C = models.CharField(max_length=2)
@@ -87,8 +87,9 @@ class Certificate(models.Model):
         ca_name = rqst.get_subject()
         ca_name.C = self.C
         ca_name.CN = self.CN
+        ca_pkey = self.key.m2_pkey(passphrase)
 
-        rqst.set_pubkey(self.key)
+        rqst.set_pubkey(ca_pkey)
         # Sign request
         rqst.sign(pkey=ca_pkey, md='sha1')
         #print rqst.as_text()
@@ -98,10 +99,10 @@ class Certificate(models.Model):
         ca_cert.set_version(2)
         # Set certificate expiration
         asn1 = ASN1.ASN1_UTCTIME()
-        asn1.set_datetime(before)
+        asn1.set_datetime(self.begin)
         ca_cert.set_not_before(asn1)
         asn1 = ASN1.ASN1_UTCTIME()
-        asn1.set_datetime(after)
+        asn1.set_datetime(self.end)
         ca_cert.set_not_after(asn1)
         # Use CA pubkey
         ca_cert.set_pubkey(ca_pkey)
@@ -114,11 +115,7 @@ class Certificate(models.Model):
         # Sign CA with CA's privkey
         ca_cert.sign(ca_pkey, md='sha1')
         #print "CA"
-        cert = cls()
-        cert.C = issuer['C']
-        cert.CN = issuer['CN']
-
-        return
+        self.certificate = ca_cert.as_pem()
 
 class Signature(models.Model):
     """A PKCS#7 signature for a model
