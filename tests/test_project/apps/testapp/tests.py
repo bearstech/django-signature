@@ -12,8 +12,8 @@ from datetime import datetime
 
 from tempfile import NamedTemporaryFile, TemporaryFile
 
-from signature.models import Key, Certificate
-from certificates import ROOT_CA
+from signature.models import Key, Certificate, Request
+from certificates import ROOT_CA, REQUEST
 
 
 def getoutput(cmd, stdin=PIPE):
@@ -369,7 +369,7 @@ class SignatureTestCase(TestCase):
         return cert_pem
 
     def testCertificateLoading(self):
-        """With a Key, try to generate a self-signed certificate
+        """Load x509 certificate
         """
         before = datetime(2010, 01, 01, 6, tzinfo=ASN1.UTC)
         after = datetime(2015, 01, 01, 6, tzinfo=ASN1.UTC)
@@ -384,3 +384,33 @@ class SignatureTestCase(TestCase):
         self.assertTrue(cert.is_ca)
         cert_text = X509.load_cert_string(cert.pem, X509.FORMAT_PEM).as_text()
         self.assertTrue(cert_text == x509_text)
+
+    def testRequestGeneration(self):
+        """With a Key, try to generate a request
+        """
+        user_pwd = "tata"
+        key = Key.generate(user_pwd)
+        key.save()
+        rqst = Request()
+        rqst.CN = "World Company"
+        rqst.C = "FR"
+        rqst.key = key
+        rqst.generate_request(user_pwd)
+        rqst.save()
+        rqst_pem = rqst.pem
+
+        m2rqst = rqst.m2_request()
+        self.assertTrue("Subject: C=FR, CN=World Company" in m2rqst.as_text())
+        return rqst_pem
+
+    def testRequestLoading(self):
+        """Load Request loading
+        """
+        m2rqst_text = X509.load_request_string(REQUEST, X509.FORMAT_PEM).as_text()
+
+        rqst = Request.new_from_pem(REQUEST)
+        rqst.save()
+        self.assertTrue(rqst.CN == "World Company")
+        self.assertTrue(rqst.C == "FR")
+        rqst_text = X509.load_request_string(rqst.pem, X509.FORMAT_PEM).as_text()
+        self.assertTrue(rqst_text == m2rqst_text)

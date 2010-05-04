@@ -57,18 +57,50 @@ class Key(models.Model):
         evp_pkey.assign_rsa(rsakeyp)
         return evp_pkey
 
+class Request(models.Model):
+    """A x509 request
+    """
+    user = models.ForeignKey(User, null=True)
+    key = models.ForeignKey(Key, null=True)
+    pem = models.TextField(editable=False)
+    C = models.CharField(max_length=2)
+    CN = models.CharField(max_length=50)
+
+    def m2_request(self):
+        """Return M2Crypto's Request instance
+        """
+        rqst = X509.load_request_string(self.pem, X509.FORMAT_PEM)
+        return rqst
+
+    def generate_request(self, passphrase=None):
+        """Generate request with instance informations
+        """
+        # TODO : class for C / CN and all attributes
+        # Generate CA Request
+        rqst = X509.Request()
+        issuer_name = rqst.get_subject()
+        issuer_name.C = self.C
+        issuer_name.CN = self.CN
+        issuer_pkey = self.key.m2_pkey(passphrase)
+        rqst.set_pubkey(issuer_pkey)
+        rqst.sign(pkey=issuer_pkey, md='sha1')
+        self.pem = rqst.as_pem()
+
+    @classmethod
+    def new_from_pem(cls, pem, user=None):
+        """Create a Request Instance with an existing PEM
+        """
+        rqst = cls(user=user)
+        m2rqst = X509.load_request_string(pem, X509.FORMAT_PEM)
+        rqst.pem = m2rqst.as_pem()
+        subject = m2rqst.get_subject()
+        rqst.C = subject.C
+        rqst.CN = subject.CN
+        return rqst
 
 class Certificate(models.Model):
     """An x509 certificate
     """
-    STATE_REQUEST = 0
-    STATE_SIGNED = 1
-    STATE_CHOICES = (
-        (STATE_REQUEST, _("Request")),
-        (STATE_REQUEST, _("Signed")),
-    )
-
-    state = models.PositiveSmallIntegerField(choices=STATE_CHOICES, default=STATE_REQUEST)
     user = models.ForeignKey(User, null=True)
     key = models.ForeignKey(Key, null=True)
     pem = models.TextField(editable=False)
