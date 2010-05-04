@@ -157,6 +157,46 @@ class Certificate(models.Model):
         ca_cert.sign(ca_pkey, md='sha1')
         self.pem = ca_cert.as_pem()
 
+    def sign_request(self, rqst, not_before, not_after, passphrase=None):
+        """Sign a Request and return a Certificate instance
+        """
+        # TODO : class for C / CN and all attributes
+        # Generate CA Request
+        m2rqst = rqst.m2_request()
+        c_name = m2rqst.get_subject()
+        c_cert = Certificate()
+        c_cert.C = c_name.C
+        c_cert.CN = c_name.CN
+        c_cert.end = not_after
+        c_cert.begin = not_before
+        c_cert.key = rqst.key
+        c_cert.user = rqst.user
+        c_cert.issuer = self
+        ca_pkey = self.key.m2_pkey(passphrase)
+
+        # Make CA's self-signed certificate with CA request
+        m2_cert = X509.X509()
+        #ca_cert.set_version(2)
+        # Set certificate expiration
+        asn1 = ASN1.ASN1_UTCTIME()
+        asn1.set_datetime(not_before)
+        m2_cert.set_not_before(asn1)
+        asn1 = ASN1.ASN1_UTCTIME()
+        asn1.set_datetime(not_after)
+        m2_cert.set_not_after(asn1)
+        # Use CA pubkey
+        m2_cert.set_pubkey(m2rqst.get_pubkey())
+        # Issuer
+        ca_name = X509.X509_Name()
+        ca_name.C = self.C
+        ca_name.CN = self.CN
+        m2_cert.set_issuer_name(ca_name)
+        # Subject
+        m2_cert.set_subject_name(c_name)
+        # Sign Cert with CA's privkey
+        m2_cert.sign(ca_pkey, md='sha1')
+        c_cert.pem = m2_cert.as_pem()
+
     @classmethod
     def new_from_pem(cls, pem, user=None):
         """Create a Certificate Instance with an existing PEM
@@ -173,10 +213,10 @@ class Certificate(models.Model):
             cert.is_ca = True
         return cert
 
-
 class Signature(models.Model):
     """A PKCS#7 signature for a model
     """
+    certificate = models.ForeignKey(Certificate)
     object_id = models.PositiveIntegerField()
     content_type = models.ForeignKey(ContentType)
     content_object = generic.GenericForeignKey('content_type', 'object_id')

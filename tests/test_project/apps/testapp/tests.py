@@ -414,3 +414,36 @@ class SignatureTestCase(TestCase):
         self.assertTrue(rqst.C == "FR")
         rqst_text = X509.load_request_string(rqst.pem, X509.FORMAT_PEM).as_text()
         self.assertTrue(rqst_text == m2rqst_text)
+
+    def testCertSignature(self):
+        """
+        """
+        before = datetime(2010, 01, 01, 6, tzinfo=ASN1.UTC)
+        after = datetime(2015, 01, 01, 6, tzinfo=ASN1.UTC)
+        ca_pwd = "R00tz"
+        c_pwd = "1234"
+
+        # CA and Client keys
+        ca_key = Key.generate(ca_pwd)
+        c_key = Key.generate(c_pwd)
+
+        # CA Cert
+        ca_cert = Certificate()
+        ca_cert.CN = "Admin"
+        ca_cert.C = "FR"
+        ca_cert.key = ca_key
+        ca_cert.begin = before
+        ca_cert.end = after
+        ca_cert.is_ca = True
+        ca_cert.generate_x509_root(ca_pwd)
+
+        # Client's request
+        rqst = Request()
+        rqst.CN = "World Company"
+        rqst.C = "FR"
+        rqst.key = c_key
+        rqst.generate_request(c_pwd)
+
+        c_cert = ca_cert.sign_request(rqst, before, after, ca_pwd)
+        return
+        print c_cert.m2_x509().as_text()
