@@ -23,8 +23,8 @@ Todo :
  - More x509 attributes
  - ... and much more
 
-Examples
-++++++++
+Examples :
+----------
 
 There is an simple PKI example::
 
@@ -32,8 +32,8 @@ There is an simple PKI example::
     from signature.models import Key, Certificate, Request
     from datetime import datetime
 
-    before = datetime(2010, 01, 01, 6, tzinfo=ASN1.UTC)
-    after = datetime(2015, 01, 01, 6, tzinfo=ASN1.UTC)
+    before = datetime(2010, 01, 01)
+    after = datetime(2015, 01, 01)
     ca_pwd = "R00tz"
     c_pwd = "1234"
 
@@ -61,6 +61,8 @@ There is an simple PKI example::
     # Sign client's request and return certificate
     c_cert = ca_cert.sign_request(rqst, before, after, ca_pwd)
 
+
+For more examples, see SignaturePKITestCase into tests/test_project/apps/testapp/tests.py
 
 Tests :
 -------
