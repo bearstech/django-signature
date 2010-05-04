@@ -16,11 +16,179 @@ from signature.models import Key, Certificate, Request
 from certificates import C_KEY, CA_KEY ,C_PUB_KEY, CA_CERT, C_REQUEST, C_CERT
 
 
+class SignaturePKITestCase(TestCase):
+    """Tests with django Signature + M2Cryto
+    """
+    def testKeyGenerationPrivate(self):
+        """Test Private Key pair generation
+        """
+        user_pwd = "tata"
+        k = Key.generate(user_pwd)
+        k.save()
+        self.assertTrue("-----BEGIN RSA PRIVATE KEY-----" in k.private)
+        self.assertTrue("ENCRYPTED" in k.private)
+        self.assertTrue("-----BEGIN PUBLIC KEY-----" in k.public)
+        pkey = k.m2_pkey(user_pwd)
+        self.assertTrue(isinstance(pkey, EVP.PKey))
+
+
+    def testKeyGeneration(self):
+        """Test Key pair generation without encryption
+        """
+        k = Key.generate(None)
+        k.save()
+        self.assertTrue("-----BEGIN RSA PRIVATE KEY-----" in k.private)
+        self.assertTrue("ENCRYPTED" not in k.private)
+        self.assertTrue("-----BEGIN PUBLIC KEY-----" in k.public)
+        pkey = k.m2_pkey()
+        self.assertTrue(isinstance(pkey, EVP.PKey))
+
+    def testKeyLoading(self):
+        """Try to load key
+        """
+        k = Key.new_from_pem(C_KEY, "1234")
+        self.assertTrue(k.length == 4096)
+        self.assertTrue(k.public == C_PUB_KEY)
+
+    def testSelfCertificateGeneration(self):
+        """With a Key, try to generate a self-signed certificate
+        """
+        before = datetime(2010, 01, 01)
+        after = datetime(2015, 01, 01)
+        user_pwd = "tata"
+        key = Key.generate(user_pwd)
+        key.save()
+        cert = Certificate()
+        cert.CN = "My CN"
+        cert.C = "FR"
+        cert.key = key
+        cert.begin = before
+        cert.end = after
+        cert.is_ca = True
+        cert.generate_x509_root(user_pwd)
+        cert.save()
+        cert_pem = cert.pem
+
+        # Just test Certificate.m2_x509() method
+        x509 = X509.load_cert_string(cert_pem, X509.FORMAT_PEM)
+        m2x509 = cert.m2_x509()
+        self.assertTrue(x509.as_text() == m2x509.as_text())
+
+        self.assertTrue("CA:TRUE" in m2x509.as_text())
+        self.assertTrue("Issuer: C=FR, CN=My CN" in m2x509.as_text())
+        self.assertTrue("Subject: C=FR, CN=My CN" in m2x509.as_text())
+        return cert_pem
+
+    def testCertificateLoading(self):
+        """Load x509 certificate
+        """
+        before = datetime(2010, 01, 01, 6, tzinfo=ASN1.UTC)
+        after = datetime(2015, 01, 01, 6, tzinfo=ASN1.UTC)
+        x509_text = X509.load_cert_string(CA_CERT, X509.FORMAT_PEM).as_text()
+
+        cert = Certificate.new_from_pem(CA_CERT)
+        cert.save()
+        self.assertTrue(cert.CN == "Admin")
+        self.assertTrue(cert.C == "FR")
+        self.assertTrue(cert.begin == before)
+        self.assertTrue(cert.end == after)
+        self.assertTrue(cert.is_ca)
+        cert_text = X509.load_cert_string(cert.pem, X509.FORMAT_PEM).as_text()
+        self.assertTrue(cert_text == x509_text)
+
+    def testRequestGeneration(self):
+        """With a Key, try to generate a request
+        """
+        user_pwd = "tata"
+        key = Key.generate(user_pwd)
+        key.save()
+        rqst = Request()
+        rqst.CN = "World Company"
+        rqst.C = "FR"
+        rqst.key = key
+        rqst.generate_request(user_pwd)
+        rqst.save()
+        rqst_pem = rqst.pem
+
+        m2rqst = rqst.m2_request()
+        self.assertTrue("Subject: C=FR, CN=World Company" in m2rqst.as_text())
+        return rqst_pem
+
+    def testRequestLoading(self):
+        """Load Request loading
+        """
+        m2rqst_text = X509.load_request_string(C_REQUEST, X509.FORMAT_PEM).as_text()
+
+        rqst = Request.new_from_pem(C_REQUEST)
+        rqst.save()
+        self.assertTrue(rqst.CN == "World Company")
+        self.assertTrue(rqst.C == "FR")
+        rqst_text = X509.load_request_string(rqst.pem, X509.FORMAT_PEM).as_text()
+        self.assertTrue(rqst_text == m2rqst_text)
+
+    def testSignaturePKI(self):
+        """
+        """
+        before = datetime(2010, 01, 01, 6, tzinfo=ASN1.UTC)
+        after = datetime(2015, 01, 01, 6, tzinfo=ASN1.UTC)
+        ca_pwd = "R00tz"
+        c_pwd = "1234"
+
+        # CA and Client keys
+        ca_key = Key.generate(ca_pwd)
+        c_key = Key.generate(c_pwd)
+
+        # CA Cert
+        ca_cert = Certificate()
+        ca_cert.CN = "Admin"
+        ca_cert.C = "FR"
+        ca_cert.key = ca_key
+        ca_cert.begin = before
+        ca_cert.end = after
+        ca_cert.is_ca = True
+        ca_cert.generate_x509_root(ca_pwd)
+
+        # Client's request
+        rqst = Request()
+        rqst.CN = "World Company"
+        rqst.C = "FR"
+        rqst.key = c_key
+        rqst.generate_request(c_pwd)
+
+        c_cert = ca_cert.sign_request(rqst, before, after, ca_pwd)
+
+class SignatureTestCase(TestCase):
+    """Tests with django Signature + M2Cryto
+    Sign some models
+    """
+    def setUp(self):
+        """Load keys
+        """
+        self.user_admin = User.objects.create(username="Admin", email="admin@server.bofh")
+        self.user_client = User.objects.create(username="Client", email="client@internet.isp")
+        self.ca_key = Key.new_from_pem(CA_KEY, "R00tz", self.user_admin)
+        self.c_key = Key.new_from_pem(C_KEY, "1234", self.user_client)
+        self.ca_cert = Certificate.new_from_pem(CA_CERT, user=self.user_admin, key=self.ca_key)
+        self.c_cert = Certificate.new_from_pem(C_CERT, user=self.user_client, key=self.c_key)
+
+    def testBasicSignature(self):
+        """Try to sign a basic object
+        """
+        pass
+
+##################################
+# Following tests are just for
+# Code practice with openssl
+# or M2Crypto
+# They will be deleted
+##################################
+
 def getoutput(cmd, stdin=PIPE):
     cmd = shlex.split(cmd)
     a =  Popen(cmd, stdout=PIPE, stderr=PIPE, stdin=stdin).communicate()
     #print a[1]
     return a[0]
+
 
 class RawTestCase(TestCase):
     """Tests with openssl lib
@@ -312,162 +480,3 @@ class M2TestCase(TestCase):
 
         #s.verify(p7, bio_data_wrong) # XXX : WTF Segfault ???
 
-class SignaturePKITestCase(TestCase):
-    """Tests with django Signature + M2Cryto
-    """
-    def testKeyGenerationPrivate(self):
-        """Test Private Key pair generation
-        """
-        user_pwd = "tata"
-        k = Key.generate(user_pwd)
-        k.save()
-        self.assertTrue("-----BEGIN RSA PRIVATE KEY-----" in k.private)
-        self.assertTrue("ENCRYPTED" in k.private)
-        self.assertTrue("-----BEGIN PUBLIC KEY-----" in k.public)
-        pkey = k.m2_pkey(user_pwd)
-        self.assertTrue(isinstance(pkey, EVP.PKey))
-
-
-    def testKeyGeneration(self):
-        """Test Key pair generation without encryption
-        """
-        k = Key.generate(None)
-        k.save()
-        self.assertTrue("-----BEGIN RSA PRIVATE KEY-----" in k.private)
-        self.assertTrue("ENCRYPTED" not in k.private)
-        self.assertTrue("-----BEGIN PUBLIC KEY-----" in k.public)
-        pkey = k.m2_pkey()
-        self.assertTrue(isinstance(pkey, EVP.PKey))
-
-    def testKeyLoading(self):
-        """Try to load key
-        """
-        k = Key.new_from_pem(C_KEY, "1234")
-        self.assertTrue(k.length == 4096)
-        self.assertTrue(k.public == C_PUB_KEY)
-
-    def testSelfCertificateGeneration(self):
-        """With a Key, try to generate a self-signed certificate
-        """
-        before = datetime(2010, 01, 01)
-        after = datetime(2015, 01, 01)
-        user_pwd = "tata"
-        key = Key.generate(user_pwd)
-        key.save()
-        cert = Certificate()
-        cert.CN = "My CN"
-        cert.C = "FR"
-        cert.key = key
-        cert.begin = before
-        cert.end = after
-        cert.is_ca = True
-        cert.generate_x509_root(user_pwd)
-        cert.save()
-        cert_pem = cert.pem
-
-        # Just test Certificate.m2_x509() method
-        x509 = X509.load_cert_string(cert_pem, X509.FORMAT_PEM)
-        m2x509 = cert.m2_x509()
-        self.assertTrue(x509.as_text() == m2x509.as_text())
-
-        self.assertTrue("CA:TRUE" in m2x509.as_text())
-        self.assertTrue("Issuer: C=FR, CN=My CN" in m2x509.as_text())
-        self.assertTrue("Subject: C=FR, CN=My CN" in m2x509.as_text())
-        return cert_pem
-
-    def testCertificateLoading(self):
-        """Load x509 certificate
-        """
-        before = datetime(2010, 01, 01, 6, tzinfo=ASN1.UTC)
-        after = datetime(2015, 01, 01, 6, tzinfo=ASN1.UTC)
-        x509_text = X509.load_cert_string(CA_CERT, X509.FORMAT_PEM).as_text()
-
-        cert = Certificate.new_from_pem(CA_CERT)
-        cert.save()
-        self.assertTrue(cert.CN == "Admin")
-        self.assertTrue(cert.C == "FR")
-        self.assertTrue(cert.begin == before)
-        self.assertTrue(cert.end == after)
-        self.assertTrue(cert.is_ca)
-        cert_text = X509.load_cert_string(cert.pem, X509.FORMAT_PEM).as_text()
-        self.assertTrue(cert_text == x509_text)
-
-    def testRequestGeneration(self):
-        """With a Key, try to generate a request
-        """
-        user_pwd = "tata"
-        key = Key.generate(user_pwd)
-        key.save()
-        rqst = Request()
-        rqst.CN = "World Company"
-        rqst.C = "FR"
-        rqst.key = key
-        rqst.generate_request(user_pwd)
-        rqst.save()
-        rqst_pem = rqst.pem
-
-        m2rqst = rqst.m2_request()
-        self.assertTrue("Subject: C=FR, CN=World Company" in m2rqst.as_text())
-        return rqst_pem
-
-    def testRequestLoading(self):
-        """Load Request loading
-        """
-        m2rqst_text = X509.load_request_string(C_REQUEST, X509.FORMAT_PEM).as_text()
-
-        rqst = Request.new_from_pem(C_REQUEST)
-        rqst.save()
-        self.assertTrue(rqst.CN == "World Company")
-        self.assertTrue(rqst.C == "FR")
-        rqst_text = X509.load_request_string(rqst.pem, X509.FORMAT_PEM).as_text()
-        self.assertTrue(rqst_text == m2rqst_text)
-
-    def testSignaturePKI(self):
-        """
-        """
-        before = datetime(2010, 01, 01, 6, tzinfo=ASN1.UTC)
-        after = datetime(2015, 01, 01, 6, tzinfo=ASN1.UTC)
-        ca_pwd = "R00tz"
-        c_pwd = "1234"
-
-        # CA and Client keys
-        ca_key = Key.generate(ca_pwd)
-        c_key = Key.generate(c_pwd)
-
-        # CA Cert
-        ca_cert = Certificate()
-        ca_cert.CN = "Admin"
-        ca_cert.C = "FR"
-        ca_cert.key = ca_key
-        ca_cert.begin = before
-        ca_cert.end = after
-        ca_cert.is_ca = True
-        ca_cert.generate_x509_root(ca_pwd)
-
-        # Client's request
-        rqst = Request()
-        rqst.CN = "World Company"
-        rqst.C = "FR"
-        rqst.key = c_key
-        rqst.generate_request(c_pwd)
-
-        c_cert = ca_cert.sign_request(rqst, before, after, ca_pwd)
-
-class SignatureTestCase(TestCase):
-    """Tests with django Signature + M2Cryto
-    Sign some models
-    """
-    def setUp(self):
-        """Load keys
-        """
-        self.user_admin = User.objects.create(username="Admin", email="admin@server.bofh")
-        self.user_client = User.objects.create(username="Client", email="client@internet.isp")
-        self.ca_key = Key.new_from_pem(CA_KEY, "R00tz", self.user_admin)
-        self.c_key = Key.new_from_pem(C_KEY, "1234", self.user_client)
-        self.ca_cert = Certificate.new_from_pem(CA_CERT, user=self.user_admin, key=self.ca_key)
-        self.c_cert = Certificate.new_from_pem(C_CERT, user=self.user_client, key=self.c_key)
-
-    def testBasicSignature(self):
-        """Try to sign a basic object
-        """
-        pass

@@ -1,7 +1,7 @@
 django-signature
 ================
 
-Application to generate ssl certificates and sign models
+Application to generate x509 certificates and sign models
 
 ALPHA : NOT FOR PRODUCTION USE
 
@@ -14,20 +14,18 @@ Features :
  - Generate self-signed x509 for root CA
  - Sign Requests
 
-
 Todo :
 ------
 
  - Sign Models !!
- - user RSA _OR_ EVP for Key's Models
+ - use RSA _OR_ EVP for Key's Models
  - More x509 attributes
  - ... and much more
 
 Examples :
 ----------
 
-There is an simple PKI example::
-
+There is an simple PKI example:
 
     from signature.models import Key, Certificate, Request
     from datetime import datetime
@@ -72,4 +70,9 @@ Tests :
  - ./bin/buildout.py -v
  - ./bin/test-1.1 or ./bin/test-1.0
 
+Requirements :
+--------------
+
+ - M2Crypto : http://chandlerproject.org/Projects/MeTooCrypto
+ - Django >= 1.1
   
