@@ -353,7 +353,8 @@ class SignatureTestCase(TestCase):
         cert.key = key
         cert.begin = before
         cert.end = after
-        cert.generate_x509_rootca(user_pwd)
+        cert.is_ca = True
+        cert.generate_x509_root(user_pwd)
         cert.save()
         cert_pem = cert.pem
 
@@ -380,5 +381,6 @@ class SignatureTestCase(TestCase):
         self.assertTrue(cert.C == "FR")
         self.assertTrue(cert.begin == before)
         self.assertTrue(cert.end == after)
+        self.assertTrue(cert.is_ca)
         cert_text = X509.load_cert_string(cert.pem, X509.FORMAT_PEM).as_text()
         self.assertTrue(cert_text == x509_text)

@@ -76,6 +76,7 @@ class Certificate(models.Model):
     CN = models.CharField(max_length=50)
     begin = models.DateTimeField()
     end = models.DateTimeField()
+    is_ca = models.BooleanField(default=False)
     issuer = models.ForeignKey('self', related_name='issuer_set', null=True)
 
     def m2_x509(self):
@@ -84,7 +85,7 @@ class Certificate(models.Model):
         cert = X509.load_cert_string(self.pem, X509.FORMAT_PEM)
         return cert
 
-    def generate_x509_rootca(self, passphrase=None):
+    def generate_x509_root(self, passphrase=None):
         """Generate x509 certificate with instance informations
         """
         # TODO : class for C / CN and all attributes
@@ -115,12 +116,13 @@ class Certificate(models.Model):
         # Self signed : subject = issuer
         ca_cert.set_subject_name(ca_name)
         ca_cert.set_issuer_name(ca_name)
-        # Add CA Constraint
-        ext = X509.new_extension('basicConstraints', 'CA:TRUE')
-        ca_cert.add_ext(ext)
+        if self.is_ca:
+            # Add CA Constraint
+            ext = X509.new_extension('basicConstraints', 'CA:TRUE')
+            ca_cert.add_ext(ext)
+            self.is_ca = True
         # Sign CA with CA's privkey
         ca_cert.sign(ca_pkey, md='sha1')
-        #print "CA"
         self.pem = ca_cert.as_pem()
 
     @classmethod
@@ -135,6 +137,8 @@ class Certificate(models.Model):
         cert.CN = issuer.CN
         cert.begin = x509.get_not_before().get_datetime()
         cert.end = x509.get_not_after().get_datetime()
+        if x509.check_ca():
+            cert.is_ca = True
         return cert
 
 
