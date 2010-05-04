@@ -197,6 +197,9 @@ class Certificate(models.Model):
         m2_cert.sign(ca_pkey, md='sha1')
         c_cert.pem = m2_cert.as_pem()
 
+        # And return new instance
+        return c_cert
+
     @classmethod
     def new_from_pem(cls, pem, user=None):
         """Create a Certificate Instance with an existing PEM
