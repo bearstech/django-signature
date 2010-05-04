@@ -322,6 +322,9 @@ class SignatureTestCase(TestCase):
         self.assertTrue("-----BEGIN RSA PRIVATE KEY-----" in k.private)
         self.assertTrue("ENCRYPTED" in k.private)
         self.assertTrue("-----BEGIN PUBLIC KEY-----" in k.public)
+        pkey = k.m2_pkey(user_pwd)
+        self.assertTrue(isinstance(pkey, EVP.PKey))
+
 
     def testKeyGeneration(self):
         """Test Key pair generation without encryption
@@ -331,8 +334,12 @@ class SignatureTestCase(TestCase):
         self.assertTrue("-----BEGIN RSA PRIVATE KEY-----" in k.private)
         self.assertTrue("ENCRYPTED" not in k.private)
         self.assertTrue("-----BEGIN PUBLIC KEY-----" in k.public)
+        pkey = k.m2_pkey()
+        self.assertTrue(isinstance(pkey, EVP.PKey))
 
     def testSelfCertificateGeneration(self):
         """With a Key, try to generate a self-signed certificate
         """
+        key = Key.generate(None)
+        key.save()
         cert = Certificate.new_x509_rootca(key)
