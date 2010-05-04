@@ -20,6 +20,8 @@ def quiet_passphrase(passphrase=None):
 
 class Key(models.Model):
     """An Private/public key pair
+
+    TODO : RSA/EVP ??
     """
     user = models.ForeignKey(User, null=True)
     length = models.PositiveIntegerField(editable=False)
@@ -57,6 +59,20 @@ class Key(models.Model):
         evp_pkey.assign_rsa(rsakeyp)
         return evp_pkey
 
+    @classmethod
+    def new_from_pem(cls, pem, passphrase=None, user=None):
+        """Create a Key Instance with an existing PEM
+        """
+        ciph, cb = quiet_passphrase(passphrase)
+        key = cls(user=user)
+        m2key = RSA.load_key_string(pem, cb)
+        key.private = m2key.as_pem(ciph, cb)
+        bio = BIO.MemoryBuffer()
+        m2key.save_pub_key_bio(bio)
+        key.public = bio.read()
+        key.length = len(m2key)
+        return key
+
 class Request(models.Model):
     """A x509 request
     """
@@ -87,10 +103,10 @@ class Request(models.Model):
         self.pem = rqst.as_pem()
 
     @classmethod
-    def new_from_pem(cls, pem, user=None):
+    def new_from_pem(cls, pem, user=None, key=None):
         """Create a Request Instance with an existing PEM
         """
-        rqst = cls(user=user)
+        rqst = cls(user=user, key=key)
         m2rqst = X509.load_request_string(pem, X509.FORMAT_PEM)
         rqst.pem = m2rqst.as_pem()
         subject = m2rqst.get_subject()
@@ -201,10 +217,10 @@ class Certificate(models.Model):
         return c_cert
 
     @classmethod
-    def new_from_pem(cls, pem, user=None):
+    def new_from_pem(cls, pem, user=None, key=None):
         """Create a Certificate Instance with an existing PEM
         """
-        cert = cls(user=user)
+        cert = cls(user=user, key=key)
         x509 = X509.load_cert_string(pem, X509.FORMAT_PEM)
         cert.pem = x509.as_pem()
         issuer = x509.get_issuer()

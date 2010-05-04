@@ -13,7 +13,7 @@ from datetime import datetime
 from tempfile import NamedTemporaryFile, TemporaryFile
 
 from signature.models import Key, Certificate, Request
-from certificates import CA_CERT, C_REQUEST
+from certificates import C_KEY, CA_KEY ,C_PUB_KEY, CA_CERT, C_REQUEST, C_CERT
 
 
 def getoutput(cmd, stdin=PIPE):
@@ -312,7 +312,7 @@ class M2TestCase(TestCase):
 
         #s.verify(p7, bio_data_wrong) # XXX : WTF Segfault ???
 
-class SignatureTestCase(TestCase):
+class SignaturePKITestCase(TestCase):
     """Tests with django Signature + M2Cryto
     """
     def testKeyGenerationPrivate(self):
@@ -338,6 +338,13 @@ class SignatureTestCase(TestCase):
         self.assertTrue("-----BEGIN PUBLIC KEY-----" in k.public)
         pkey = k.m2_pkey()
         self.assertTrue(isinstance(pkey, EVP.PKey))
+
+    def testKeyLoading(self):
+        """Try to load key
+        """
+        k = Key.new_from_pem(C_KEY, "1234")
+        self.assertTrue(k.length == 4096)
+        self.assertTrue(k.public == C_PUB_KEY)
 
     def testSelfCertificateGeneration(self):
         """With a Key, try to generate a self-signed certificate
@@ -445,3 +452,22 @@ class SignatureTestCase(TestCase):
         rqst.generate_request(c_pwd)
 
         c_cert = ca_cert.sign_request(rqst, before, after, ca_pwd)
+
+class SignatureTestCase(TestCase):
+    """Tests with django Signature + M2Cryto
+    Sign some models
+    """
+    def setUp(self):
+        """Load keys
+        """
+        self.user_admin = User.objects.create(username="Admin", email="admin@server.bofh")
+        self.user_client = User.objects.create(username="Client", email="client@internet.isp")
+        self.ca_key = Key.new_from_pem(CA_KEY, "R00tz", self.user_admin)
+        self.c_key = Key.new_from_pem(C_KEY, "1234", self.user_client)
+        self.ca_cert = Certificate.new_from_pem(CA_CERT, user=self.user_admin, key=self.ca_key)
+        self.c_cert = Certificate.new_from_pem(C_CERT, user=self.user_client, key=self.c_key)
+
+    def testBasicSignature(self):
+        """Try to sign a basic object
+        """
+        pass
