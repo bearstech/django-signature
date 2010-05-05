@@ -6,7 +6,7 @@ from datetime import date
 
 from subprocess import Popen, PIPE
 import shlex
-from M2Crypto import m2, ASN1, RSA, EVP, X509
+from M2Crypto import m2, ASN1, RSA, EVP, X509, BIO, SMIME
 
 from datetime import datetime
 
@@ -164,6 +164,8 @@ class SignatureTestCase(TestCase):
     def setUp(self):
         """Load keys
         """
+        self.ca_pwd = "R00tz"
+        self.c_pwd = "1234"
         self.user_admin = User.objects.create(username="Admin", email="admin@server.bofh")
         self.user_client = User.objects.create(username="Client", email="client@internet.isp")
         self.ca_key = Key.new_from_pem(CA_KEY, "R00tz", self.user_admin)
@@ -171,10 +173,38 @@ class SignatureTestCase(TestCase):
         self.ca_cert = Certificate.new_from_pem(CA_CERT, user=self.user_admin, key=self.ca_key)
         self.c_cert = Certificate.new_from_pem(C_CERT, user=self.user_client, key=self.c_key)
 
-    def testBasicSignature(self):
-        """Try to sign a basic object
+
+    def testBasicTextSignature(self):
+        """Try to sign a basic text
         """
-        pass
+        # Sign
+        text = "This is a data"
+        data_signed = self.c_cert.sign_text(text, self.c_pwd)
+        print data_signed
+        print "OK"
+
+
+        # Check
+        #print "Check"
+        s = SMIME.SMIME()
+        # Adds client crt
+        sk = X509.X509_Stack()
+        sk.push(self.c_cert.m2_x509())
+        s.set_x509_stack(sk)
+        # Adds CA crt
+        st = X509.X509_Store()
+        st.add_cert(self.ca_cert.m2_x509())
+        s.set_x509_store(st)
+
+
+        # Get data and p7 from data_signed
+        bio_data_signed = BIO.MemoryBuffer(data_signed)
+        p7, data = SMIME.smime_load_pkcs7_bio(bio_data_signed)
+        print data.read()
+        bio_data = BIO.MemoryBuffer("This is a data")
+        verified = s.verify(p7, bio_data)
+        print "NOK"
+        print verified
 
 ##################################
 # Following tests are just for

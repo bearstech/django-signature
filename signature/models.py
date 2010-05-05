@@ -3,11 +3,11 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
 from django.contrib.auth.models import User
 from django.utils.translation import ugettext_lazy as _
-from M2Crypto import BIO, m2, ASN1, RSA, EVP, X509
+from M2Crypto import BIO, m2, ASN1, RSA, EVP, X509, SMIME
 from M2Crypto.util import no_passphrase_callback
 
 def quiet_callback(*args):
-    return
+        return
 
 def quiet_passphrase(passphrase=None):
     if passphrase == None:
@@ -74,7 +74,7 @@ class Key(models.Model):
         return key
 
 class Request(models.Model):
-    """A x509 request
+    """A CSR
     """
     user = models.ForeignKey(User, null=True)
     key = models.ForeignKey(Key, null=True)
@@ -113,6 +113,14 @@ class Request(models.Model):
         rqst.C = subject.C
         rqst.CN = subject.CN
         return rqst
+
+class Signature(models.Model):
+    """A PKCS#7 signature for a model
+    """
+    certificate = models.ForeignKey('Certificate')
+    object_id = models.PositiveIntegerField()
+    content_type = models.ForeignKey(ContentType)
+    content_object = generic.GenericForeignKey('content_type', 'object_id')
 
 class Certificate(models.Model):
     """An x509 certificate
@@ -232,12 +240,46 @@ class Certificate(models.Model):
             cert.is_ca = True
         return cert
 
-class Signature(models.Model):
-    """A PKCS#7 signature for a model
-    """
-    certificate = models.ForeignKey(Certificate)
-    object_id = models.PositiveIntegerField()
-    content_type = models.ForeignKey(ContentType)
-    content_object = generic.GenericForeignKey('content_type', 'object_id')
+    def sign_text(self, text, passphrase):
+        """Sign a text with cert's key and passphrase
+        """
+        if not self.key:
+            raise Exception("No key for this certificate")
 
+        text = "This is a data"
+        # Set context
+        s = SMIME.SMIME()
+        s.x509 = self.m2_x509()
+        s.pkey = self.key.m2_pkey(passphrase)
+        # Sign
+        buf = BIO.MemoryBuffer(text)
+        p7 = s.sign(buf, SMIME.PKCS7_DETACHED)
+        # write content + signature
+        out = BIO.MemoryBuffer()
+        s.write(out, p7, BIO.MemoryBuffer(text))
+        # get data signed
+        data_signed = out.read()
+        return data_signed
+
+    def sign_object(instance, passphrase, fields=[], exclude=[]):
+        """Sign a Model instance with passphrase
+        """
+        if not self.key:
+            raise Exception("No key for this certificate")
+
+        content_type = ContentType.objects.get_for_model(instance)
+
+        text = "This is a data"
+        # Set context
+        s = SMIME.SMIME()
+        s.x509 = self.m2_x509()
+        s.pkey = self.key.m2_evp()
+        # Sign
+        buf = BIO.MemoryBuffer(text)
+        p7 = s.sign(buf, SMIME.PKCS7_DETACHED)
+        # write content + signature
+        out = BIO.MemoryBuffer()
+        s.write(out, p7, BIO.MemoryBuffer(text))
+        # get data signed
+        data_signed = out.read()
 
