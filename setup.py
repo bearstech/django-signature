@@ -10,7 +10,7 @@ setup(
         version  = '0.1',
         packages = ['signature'],
 
-        requires = ['python (>= 2.4)', 'django (>= 1.0)'],
+        requires = ['python (>= 2.4)', 'django (>= 1.0)', "M2Crypto (>= 0.18)"],
 
         description  = 'Django application to generate and sign Models.',
         long_description = readme,
