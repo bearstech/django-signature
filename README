@@ -5,6 +5,8 @@ Application to generate x509 certificates and sign models
 
 ALPHA : NOT FOR PRODUCTION USE
 
+Can't verify signatures for now
+
 Features :
 ----------
 
