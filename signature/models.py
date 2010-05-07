@@ -261,6 +261,31 @@ class Certificate(models.Model):
         data_signed = out.read()
         return data_signed
 
+    def verify_smime(self, smime):
+        """Verify an smime signed message
+        """
+        # Check
+        #print "Check"
+        s = SMIME.SMIME()
+        # Adds client crt
+        sk = X509.X509_Stack()
+        sk.push(self.m2_x509())
+        s.set_x509_stack(sk)
+        # Adds CA crt
+        st = X509.X509_Store()
+        st.add_cert(self.issuer.m2_x509())
+        s.set_x509_store(st)
+
+        # Get data and p7 from data_signed
+        bio_smime = BIO.MemoryBuffer(smime)
+        p7, data = SMIME.smime_load_pkcs7_bio(bio_smime)
+        try:
+            verified = s.verify(p7, data)
+        except SMIME.PKCS7_Error:
+            return False
+        return True
+
+
     def sign_object(instance, passphrase, fields=[], exclude=[]):
         """Sign a Model instance with passphrase
         """

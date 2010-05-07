@@ -172,7 +172,7 @@ class SignatureTestCase(TestCase):
         self.c_key = Key.new_from_pem(C_KEY, "1234", self.user_client)
         self.ca_cert = Certificate.new_from_pem(CA_CERT, user=self.user_admin, key=self.ca_key)
         self.c_cert = Certificate.new_from_pem(C_CERT, user=self.user_client, key=self.c_key)
-
+        self.c_cert.issuer = self.ca_cert
 
     def testBasicTextSignature(self):
         """Try to sign a basic text
@@ -181,30 +181,9 @@ class SignatureTestCase(TestCase):
         text = "This is a data"
         data_signed = self.c_cert.sign_text(text, self.c_pwd)
         print data_signed
-        print "OK"
+        result = self.c_cert.verify_smime(data_signed)
+        self.assertTrue(result)
 
-
-        # Check
-        #print "Check"
-        s = SMIME.SMIME()
-        # Adds client crt
-        sk = X509.X509_Stack()
-        sk.push(self.c_cert.m2_x509())
-        s.set_x509_stack(sk)
-        # Adds CA crt
-        st = X509.X509_Store()
-        st.add_cert(self.ca_cert.m2_x509())
-        s.set_x509_store(st)
-
-
-        # Get data and p7 from data_signed
-        bio_data_signed = BIO.MemoryBuffer(data_signed)
-        p7, data = SMIME.smime_load_pkcs7_bio(bio_data_signed)
-        print data.read()
-        bio_data = BIO.MemoryBuffer("This is a data")
-        verified = s.verify(p7, bio_data)
-        print "NOK"
-        print verified
 
 ##################################
 # Following tests are just for
@@ -507,6 +486,5 @@ class M2TestCase(TestCase):
         bio_data = BIO.MemoryBuffer("This is a data")
         verified = s.verify(p7, bio_data)
         #print verified
-
-        #s.verify(p7, bio_data_wrong) # XXX : WTF Segfault ???
+        self.assertRaises(SMIME.PKCS7_Error, s.verify, p7, bio_data_wrong)
 
