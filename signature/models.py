@@ -88,7 +88,7 @@ class Request(models.Model):
         rqst = X509.load_request_string(self.pem, X509.FORMAT_PEM)
         return rqst
 
-    def generate_request(self, passphrase=None):
+    def sign_request(self, passphrase=None):
         """Generate request with instance informations
         """
         # TODO : class for C / CN and all attributes
@@ -132,8 +132,10 @@ class Certificate(models.Model):
     CN = models.CharField(max_length=50)
     begin = models.DateTimeField()
     end = models.DateTimeField()
-    is_ca = models.BooleanField(default=False)
+    serial = models.PositiveIntegerField(editable=False)
     issuer = models.ForeignKey('self', related_name='issuer_set', null=True)
+    is_ca = models.BooleanField(default=False)
+    ca_serial = models.PositiveIntegerField(null=True, editable=False)
 
     def m2_x509(self):
         """Return M2Crypto's x509 instance of certificate
@@ -172,11 +174,13 @@ class Certificate(models.Model):
         # Self signed : subject = issuer
         ca_cert.set_subject_name(ca_name)
         ca_cert.set_issuer_name(ca_name)
+        self.serial = 0
         if self.is_ca:
             # Add CA Constraint
             ext = X509.new_extension('basicConstraints', 'CA:TRUE')
             ca_cert.add_ext(ext)
             self.is_ca = True
+            self.ca_serial = 1
         # Sign CA with CA's privkey
         ca_cert.sign(ca_pkey, md='sha1')
         self.pem = ca_cert.as_pem()
@@ -200,7 +204,10 @@ class Certificate(models.Model):
 
         # Make CA's self-signed certificate with CA request
         m2_cert = X509.X509()
-        #ca_cert.set_version(2)
+        m2_cert.set_version(2)
+        m2_cert.set_serial_number(self.ca_serial)
+        c_cert.serial = self.ca_serial
+        self.ca_serial = self.ca_serial+1
         # Set certificate expiration
         asn1 = ASN1.ASN1_UTCTIME()
         asn1.set_datetime(not_before)
@@ -234,6 +241,7 @@ class Certificate(models.Model):
         issuer = x509.get_issuer()
         cert.C = issuer.C
         cert.CN = issuer.CN
+        cert.serial = x509.get_serial_number()
         cert.begin = x509.get_not_before().get_datetime()
         cert.end = x509.get_not_after().get_datetime()
         if x509.check_ca():
@@ -251,6 +259,10 @@ class Certificate(models.Model):
         s = SMIME.SMIME()
         s.x509 = self.m2_x509()
         s.pkey = self.key.m2_pkey(passphrase)
+        #buf = BIO.MemoryBuffer()
+        #xx, cb = quiet_passphrase()
+        #self.key.m2_rsa(passphrase).save_key_bio(buf, callback=cb, cipher=xx)
+        #print buf.read()
         # Sign
         buf = BIO.MemoryBuffer(text)
         p7 = s.sign(buf, SMIME.PKCS7_DETACHED)

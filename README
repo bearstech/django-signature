@@ -56,7 +56,7 @@ There is an simple PKI example:
     rqst.CN = "World Company"
     rqst.C = "FR"
     rqst.key = c_key
-    rqst.generate_request(c_pwd)
+    rqst.sign_request(c_pwd)
 
     # Sign client's request and return certificate
     c_cert = ca_cert.sign_request(rqst, before, after, ca_pwd)

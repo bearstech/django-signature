@@ -31,7 +31,6 @@ class SignaturePKITestCase(TestCase):
         pkey = k.m2_pkey(user_pwd)
         self.assertTrue(isinstance(pkey, EVP.PKey))
 
-
     def testKeyGeneration(self):
         """Test Key pair generation without encryption
         """
@@ -68,6 +67,9 @@ class SignaturePKITestCase(TestCase):
         cert.generate_x509_root(user_pwd)
         cert.save()
         cert_pem = cert.pem
+        self.assertEqual(cert.serial, 0)
+        self.assertEqual(cert.ca_serial, 1)
+        self.assertTrue(cert.is_ca)
 
         # Just test Certificate.m2_x509() method
         x509 = X509.load_cert_string(cert_pem, X509.FORMAT_PEM)
@@ -106,7 +108,7 @@ class SignaturePKITestCase(TestCase):
         rqst.CN = "World Company"
         rqst.C = "FR"
         rqst.key = key
-        rqst.generate_request(user_pwd)
+        rqst.sign_request(user_pwd)
         rqst.save()
         rqst_pem = rqst.pem
 
@@ -153,9 +155,12 @@ class SignaturePKITestCase(TestCase):
         rqst.CN = "World Company"
         rqst.C = "FR"
         rqst.key = c_key
-        rqst.generate_request(c_pwd)
+        rqst.sign_request(c_pwd)
 
         c_cert = ca_cert.sign_request(rqst, before, after, ca_pwd)
+
+        self.assertEqual(c_cert.serial, 1)
+        self.assertEqual(ca_cert.ca_serial, 2)
 
 class SignatureTestCase(TestCase):
     """Tests with django Signature + M2Cryto
@@ -180,7 +185,6 @@ class SignatureTestCase(TestCase):
         # Sign
         text = "This is a data"
         data_signed = self.c_cert.sign_text(text, self.c_pwd)
-        print data_signed
         result = self.c_cert.verify_smime(data_signed)
         self.assertTrue(result)
 
