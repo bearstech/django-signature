@@ -5,8 +5,6 @@ Application to generate x509 certificates and sign models
 
 ALPHA : NOT FOR PRODUCTION USE
 
-Can't verify signatures for now
-
 Features :
 ----------
 
@@ -15,11 +13,13 @@ Features :
  - Generate (or load) x509 Requests and store them in Django models
  - Generate self-signed x509 for root CA
  - Sign Requests
+ - Sign/verify text
+ - Sign/verify simple models
 
 Todo :
 ------
 
- - Sign Models !!
+ - Sign complex models
  - use RSA _OR_ EVP for Key's Models
  - More x509 attributes
  - ... and much more
@@ -61,8 +61,21 @@ There is an simple PKI example:
     # Sign client's request and return certificate
     c_cert = ca_cert.sign_request(rqst, before, after, ca_pwd)
 
-
 For more examples, see SignaturePKITestCase into tests/test_project/apps/testapp/tests.py
+
+There is an simple signature example:
+
+    # Sign Text
+    text = "This is a data"
+    data_signed = self.c_cert.sign_text(text, self.c_pwd)
+    result = self.c_cert.verify_smime(data_signed)
+
+    # Sign Model
+    auth1 = Author(name="Raymond E. Feist", title="MR")
+    data_signed = self.c_cert.sign_model(auth1, self.c_pwd)
+    result = self.c_cert.verify_smime(data_signed)
+
+For more examples, see SignatureTestCase into tests/test_project/apps/testapp/tests.py
 
 Tests :
 -------

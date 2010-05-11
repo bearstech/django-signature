@@ -303,7 +303,7 @@ class Certificate(models.Model):
             verified = s.verify(p7, data)
         except SMIME.PKCS7_Error:
             return False
-        return True
+        return data.read()
 
 
     def sign_object(instance, passphrase, fields=[], exclude=[]):

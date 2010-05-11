@@ -186,6 +186,7 @@ class SignatureTestCase(TestCase):
         data_signed = self.c_cert.sign_text(text, self.c_pwd)
         result = self.c_cert.verify_smime(data_signed)
         self.assertTrue(result)
+        self.assertEqual(result, text)
 
     def testBasicModelSignature(self):
         """Try to sign a basic model
