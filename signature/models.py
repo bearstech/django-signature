@@ -1,4 +1,5 @@
 from django.db import models
+from django.core import serializers
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
 from django.contrib.auth.models import User
@@ -254,7 +255,6 @@ class Certificate(models.Model):
         if not self.key:
             raise Exception("No key for this certificate")
 
-        text = "This is a data"
         # Set context
         s = SMIME.SMIME()
         s.x509 = self.m2_x509()
@@ -272,6 +272,14 @@ class Certificate(models.Model):
         # get data signed
         data_signed = out.read()
         return data_signed
+
+    def sign_model(self, obj, passphrase):
+        """Sign a model instance or a queryset
+        """
+        data = [obj]
+        serialized = serializers.serialize('yaml', data)
+        signed = self.sign_text(serialized, passphrase)
+        return signed
 
     def verify_smime(self, smime):
         """Verify an smime signed message

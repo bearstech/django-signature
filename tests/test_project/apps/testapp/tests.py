@@ -14,7 +14,7 @@ from tempfile import NamedTemporaryFile, TemporaryFile
 
 from signature.models import Key, Certificate, Request
 from certificates import C_KEY, CA_KEY ,C_PUB_KEY, CA_CERT, C_REQUEST, C_CERT
-
+from models import Author
 
 class SignaturePKITestCase(TestCase):
     """Tests with django Signature + M2Cryto
@@ -158,7 +158,6 @@ class SignaturePKITestCase(TestCase):
         rqst.sign_request(c_pwd)
 
         c_cert = ca_cert.sign_request(rqst, before, after, ca_pwd)
-
         self.assertEqual(c_cert.serial, 1)
         self.assertEqual(ca_cert.ca_serial, 2)
 
@@ -188,6 +187,14 @@ class SignatureTestCase(TestCase):
         result = self.c_cert.verify_smime(data_signed)
         self.assertTrue(result)
 
+    def testBasicModelSignature(self):
+        """Try to sign a basic model
+        """
+        # Sign
+        auth1 = Author(name="Raymond E. Feist", title="MR")
+        data_signed = self.c_cert.sign_model(auth1, self.c_pwd)
+        result = self.c_cert.verify_smime(data_signed)
+        self.assertTrue(result)
 
 ##################################
 # Following tests are just for
