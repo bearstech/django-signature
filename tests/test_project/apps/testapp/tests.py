@@ -14,7 +14,7 @@ from tempfile import NamedTemporaryFile, TemporaryFile
 
 from signature.models import Key, Certificate, Request
 from certificates import C_KEY, CA_KEY ,C_PUB_KEY, CA_CERT, C_REQUEST, C_CERT
-from models import Author
+from models import Author, Whatamess
 
 class SignaturePKITestCase(TestCase):
     """Tests with django Signature + M2Cryto
@@ -193,7 +193,28 @@ class SignatureTestCase(TestCase):
         """
         # Sign
         auth1 = Author(name="Raymond E. Feist", title="MR")
+        auth1.save()
         data_signed = self.c_cert.sign_model(auth1, self.c_pwd)
+        result = self.c_cert.verify_smime(data_signed)
+        self.assertTrue(result)
+
+    def testComplexModelSignature(self):
+        """Try to sign a complex model
+        """
+        # Sign
+        auth1 = Author(name="Raymond E. Feist", title="MR")
+        auth1.save()
+        wam1 = Whatamess()
+        wam1.name = "Woaw"
+        wam1.number = 1
+        wam1.slug = "woot"
+        wam1.text= "This is a data"
+        wam1.author = auth1
+        wam1.title = 1
+        wam1.birth_date = datetime.now()
+        wam1.yesno = True
+        wam1.save()
+        data_signed = self.c_cert.sign_model(wam1, self.c_pwd)
         result = self.c_cert.verify_smime(data_signed)
         self.assertTrue(result)
 
