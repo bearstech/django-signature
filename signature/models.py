@@ -273,11 +273,17 @@ class Certificate(models.Model):
         data_signed = out.read()
         return data_signed
 
-    def sign_model(self, obj, passphrase):
+    def sign_model(self, obj, passphrase, use_natural_keys=False):
         """Sign a model instance or a queryset
         """
         data = [obj]
-        serialized = serializers.serialize('yaml', data)
+        try:
+            serialized = serializers.serialize('yaml', data, use_natural_keys=use_natural_keys)
+        except TypeError:
+            # Fallback for django <= 1.1
+            from signature.utils import SMIMESerializer
+            serializer = SMIMESerializer()
+            serialized = serializer.serialize(data, use_natural_keys=use_natural_keys)
         signed = self.sign_text(serialized, passphrase)
         return signed
 

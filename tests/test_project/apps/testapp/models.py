@@ -7,12 +7,16 @@ class Author(models.Model):
             ('MRS', _('Mrs.')),
             ('MS', _('Ms.')),
     )
-    name = models.CharField(_('Name'), max_length=100, default="Platon")
+    name = models.CharField(_('Name'), max_length=100, default="Platon", unique=True)
     title = models.CharField(max_length=3, choices=TITLE_CHOICES)
     birth_date = models.DateField(blank=True, null=True)
 
     def __unicode__(self):
         return self.name
+
+    def natural_key(self):
+        return (self.name,)
+
 
 class Whatamess(models.Model):
     TITLE_CHOICES = (

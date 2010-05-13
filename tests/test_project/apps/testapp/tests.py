@@ -215,6 +215,11 @@ class SignatureTestCase(TestCase):
         wam1.yesno = True
         wam1.save()
         data_signed = self.c_cert.sign_model(wam1, self.c_pwd)
+        self.assertFalse("Raymond E. Feist" in data_signed)
+        result = self.c_cert.verify_smime(data_signed)
+        self.assertTrue(result)
+        data_signed = self.c_cert.sign_model(wam1, self.c_pwd, use_natural_keys=True)
+        self.assertTrue("Raymond E. Feist" in data_signed)
         result = self.c_cert.verify_smime(data_signed)
         self.assertTrue(result)
 
