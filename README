@@ -83,7 +83,7 @@ Tests :
  - cd tests
  - python bootstrap.py
  - ./bin/buildout.py -v
- - ./bin/test-1.1 or ./bin/test-1.0
+ - ./bin/test-1.2 or ./bin/test-1.1
 
 Requirements :
 --------------
