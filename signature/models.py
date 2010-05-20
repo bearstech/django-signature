@@ -122,6 +122,13 @@ class Signature(models.Model):
     object_id = models.PositiveIntegerField()
     content_type = models.ForeignKey(ContentType)
     content_object = generic.GenericForeignKey('content_type', 'object_id')
+    pkcs7 = models.TextField()
+
+    def check_pkcs7(self):
+        """Check PKCS7 signature
+        (don't compare with original model)
+        """
+        return self.certificate.verify_smime(self.pkcs7)
 
 class Certificate(models.Model):
     """An x509 certificate
@@ -312,25 +319,16 @@ class Certificate(models.Model):
         return data.read()
 
 
-    def sign_object(instance, passphrase, fields=[], exclude=[]):
+    def make_signature(self, instance, passphrase, fields=[], exclude=[]):
         """Sign a Model instance with passphrase
         """
         if not self.key:
             raise Exception("No key for this certificate")
 
-        content_type = ContentType.objects.get_for_model(instance)
+        signature = Signature()
 
-        text = "This is a data"
-        # Set context
-        s = SMIME.SMIME()
-        s.x509 = self.m2_x509()
-        s.pkey = self.key.m2_evp()
-        # Sign
-        buf = BIO.MemoryBuffer(text)
-        p7 = s.sign(buf, SMIME.PKCS7_DETACHED)
-        # write content + signature
-        out = BIO.MemoryBuffer()
-        s.write(out, p7, BIO.MemoryBuffer(text))
-        # get data signed
-        data_signed = out.read()
-
+        signature.pkcs7 = self.sign_model(instance, passphrase)
+        signature.certificate = self
+        signature.content_type = ContentType.objects.get_for_model(instance)
+        signature.object_id = instance.id
+        return signature

@@ -1,5 +1,6 @@
 from django.test import TestCase
 from django.contrib.auth.models import User
+from django.contrib.contenttypes.models import ContentType
 from django.conf import settings
 from django.http import HttpRequest, QueryDict
 from datetime import date
@@ -12,7 +13,7 @@ from datetime import datetime
 
 from tempfile import NamedTemporaryFile, TemporaryFile
 
-from signature.models import Key, Certificate, Request
+from signature.models import Key, Certificate, Request, Signature
 from certificates import C_KEY, CA_KEY ,C_PUB_KEY, CA_CERT, C_REQUEST, C_CERT
 from models import Author, Whatamess
 
@@ -178,7 +179,7 @@ class SignatureTestCase(TestCase):
         self.c_cert = Certificate.new_from_pem(C_CERT, user=self.user_client, key=self.c_key)
         self.c_cert.issuer = self.ca_cert
 
-    def testBasicTextSignature(self):
+    def testBasicTextPKCS7(self):
         """Try to sign a basic text
         """
         # Sign
@@ -188,7 +189,7 @@ class SignatureTestCase(TestCase):
         self.assertTrue(result)
         self.assertEqual(result, text)
 
-    def testBasicModelSignature(self):
+    def testBasicModelPKCS7(self):
         """Try to sign a basic model
         """
         # Sign
@@ -198,7 +199,7 @@ class SignatureTestCase(TestCase):
         result = self.c_cert.verify_smime(data_signed)
         self.assertTrue(result)
 
-    def testComplexModelSignature(self):
+    def testComplexModelPKCS7(self):
         """Try to sign a complex model
         """
         # Sign
@@ -222,6 +223,26 @@ class SignatureTestCase(TestCase):
         self.assertTrue("Raymond E. Feist" in data_signed)
         result = self.c_cert.verify_smime(data_signed)
         self.assertTrue(result)
+
+    def testBasicModelSignature(self):
+        """Try to sign a basic model and get a Signature
+        """
+        # Sign
+        auth1 = Author(name="Raymond E. Feist", title="MR")
+        auth1.save()
+        self.c_cert.save()
+        signed = self.c_cert.make_signature(auth1, self.c_pwd)
+        self.assertTrue(isinstance(signed, Signature))
+        content_type = ContentType.objects.get_for_model(auth1)
+        self.assertEqual(signed.content_type, content_type)
+        self.assertEqual(signed.object_id, 1)
+        signed.save()
+
+        # Verify
+        result = signed.check_pkcs7()
+        self.assertTrue(result)
+        #result = self.c_cert.verify_smime(data_signed)
+        #self.assertTrue(result)
 
 ##################################
 # Following tests are just for

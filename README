@@ -22,6 +22,7 @@ Todo :
  - Sign complex models
  - use RSA _OR_ EVP for Key's Models
  - More x509 attributes
+ - support FileField
  - ... and much more
 
 Examples :
@@ -67,13 +68,18 @@ There is an simple signature example:
 
     # Sign Text
     text = "This is a data"
-    data_signed = self.c_cert.sign_text(text, self.c_pwd)
-    result = self.c_cert.verify_smime(data_signed)
+    data_signed = c_cert.sign_text(text, c_pwd)
+    result = c_cert.verify_smime(data_signed)
 
-    # Sign Model
+    # Sign Model (get text)
     auth1 = Author(name="Raymond E. Feist", title="MR")
-    data_signed = self.c_cert.sign_model(auth1, self.c_pwd)
-    result = self.c_cert.verify_smime(data_signed)
+    data_signed = c_cert.sign_model(auth1, c_pwd)
+    result = c_cert.verify_smime(data_signed)
+
+    # Sign Model (get Signature)
+    auth1 = Author(name="Raymond E. Feist", title="MR")
+    signed = c_cert.make_signature(auth1, self.c_pwd)
+    signed.check_pkcs7(signed)
 
 For more examples, see SignatureTestCase into tests/test_project/apps/testapp/tests.py
 
