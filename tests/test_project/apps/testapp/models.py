@@ -49,8 +49,8 @@ class AuthorProxy(Author):
 
 class Book(models.Model):
     name = models.CharField(_('Name'), max_length=100, default="The Hitchhiker's Guide to the Galaxy", unique=True)
-    afile = models.FileField(upload_to="/")
-    apicture = models.ImageField(upload_to="/", null=True)
+    afile = models.FileField(upload_to=".")
+    #apicture = models.ImageField(upload_to="/", blank=True, null=True)
 
     def __unicode__(self):
         return self.name

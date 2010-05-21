@@ -13,15 +13,15 @@ from django.utils.encoding import smart_str, smart_unicode
 from django.utils import datetime_safe
 
 import yaml
+from hashlib import sha512
 
 
 # The code here is a copy of django/core/serializers source files
-# Code of SMIMESerializer class is in BSD Licence
+# With adjonctions for FileFields sha512
 
 class SMIMESerializer(DjangoYAMLEncoder):
     """
     Serializer for signatures
-    Emulate django 1.2 code for 1.1
     """
     def serialize(self, queryset, **options):
         """
@@ -62,7 +62,18 @@ class SMIMESerializer(DjangoYAMLEncoder):
         if isinstance(field, models.TimeField) and getattr(obj, field.name) is not None:
             self._current[field.name] = str(getattr(obj, field.name))
         elif isinstance(field, models.FileField) and getattr(obj, field.name) is not None:
-            raise NotImplementedError
+            # Get a sha512 of the File
+            f = getattr(obj, field.name).open()
+            if not f:
+                # TODO : Ugly no?
+                f = open(getattr(obj, field.name).name, 'rb')
+            f.seek(0)
+            sha = sha512()
+            data = f.read(512)
+            while len(data):
+                sha.update(data) 
+                data = f.read(512)
+            self._current[field.name] = str(sha.hexdigest())
         else:
             super(SMIMESerializer, self).handle_field(obj, field)
 

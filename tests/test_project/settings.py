@@ -17,3 +17,5 @@ TEMPLATE_DIRS = (
 SITE_ID = 1
 ROOT_URLCONF = 'test_project.urls'
 
+PROJECT_PATH = os.path.abspath(os.path.split(__file__)[0])
+MEDIA_ROOT = os.path.join(PROJECT_PATH, 'media')

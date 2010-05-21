@@ -15,6 +15,7 @@ Features :
  - Sign Requests
  - Sign/verify text
  - Sign/verify simple models
+ - Support FileField (with sha512 digest)
 
 Todo :
 ------
@@ -22,7 +23,6 @@ Todo :
  - Sign complex models
  - use RSA _OR_ EVP for Key's Models
  - More x509 attributes
- - support FileField
  - ... and much more
 
 Examples :

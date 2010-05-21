@@ -2,20 +2,22 @@ from django.test import TestCase
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
 from django.conf import settings
+from django.core.files.base import File
 from django.http import HttpRequest, QueryDict
-from datetime import date
 
 from subprocess import Popen, PIPE
-import shlex
+from datetime import date
 from M2Crypto import m2, ASN1, RSA, EVP, X509, BIO, SMIME
-
 from datetime import datetime
-
 from tempfile import NamedTemporaryFile, TemporaryFile
 
 from signature.models import Key, Certificate, Request, Signature
 from certificates import C_KEY, CA_KEY ,C_PUB_KEY, CA_CERT, C_REQUEST, C_CERT
+
 from models import Author, Whatamess, Book
+
+import os
+import shlex
 
 class SignaturePKITestCase(TestCase):
     """Tests with django Signature + M2Cryto
@@ -257,17 +259,11 @@ class SignatureTestCase(TestCase):
     def testFileModelSignature(self):
         """Try to sign a basic model and get a Signature
         """
-        from tempfile import NamedTemporaryFile
-        f = NamedTemporaryFile()
-        f.write("My text")
         # Sign
-        book1 = Book(name="A book", afile=f.name)
+        filepath = os.path.join(settings.MEDIA_ROOT, 'afile.txt')
+        book1 = Book(name="A book", afile=filepath)
         book1.save()
-        self.c_cert.save()
-        # Temp
-        self.assertRaises(NotImplementedError, self.c_cert.make_signature, book1, self.c_pwd)
-        return
-
+        book1 = Book.objects.get(pk=1)
         signed = self.c_cert.make_signature(book1, self.c_pwd)
         self.assertTrue(isinstance(signed, Signature))
         content_type = ContentType.objects.get_for_model(book1)
@@ -276,12 +272,28 @@ class SignatureTestCase(TestCase):
         signed.save()
 
         # Verify
+        signed = Signature.objects.get(pk=1)
         result = signed.check_pkcs7()
         self.assertTrue(result)
         result = signed.check()
         self.assertTrue(result)
-        f.seek(0)
-        f.write("My taxt")
+
+        # other file with same content
+        filepath = os.path.join(settings.MEDIA_ROOT, 'otherfile.txt')
+        book1.afile = filepath
+        book1.save()
+        signed = Signature.objects.get(pk=1)
+        result = signed.check_pkcs7()
+        self.assertTrue(result)
+        result = signed.check()
+        self.assertTrue(result)
+
+        # other file with wrong content
+        afile = "wrongfile.txt"
+        filepath = os.path.join(settings.MEDIA_ROOT, 'wrongfile.txt')
+        book1.afile = filepath
+        book1.save()
+        signed = Signature.objects.get(pk=1)
         result = signed.check()
         self.assertFalse(result)
 
