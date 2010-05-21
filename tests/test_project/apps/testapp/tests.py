@@ -15,7 +15,7 @@ from tempfile import NamedTemporaryFile, TemporaryFile
 
 from signature.models import Key, Certificate, Request, Signature
 from certificates import C_KEY, CA_KEY ,C_PUB_KEY, CA_CERT, C_REQUEST, C_CERT
-from models import Author, Whatamess
+from models import Author, Whatamess, Book
 
 class SignaturePKITestCase(TestCase):
     """Tests with django Signature + M2Cryto
@@ -174,10 +174,14 @@ class SignatureTestCase(TestCase):
         self.user_admin = User.objects.create(username="Admin", email="admin@server.bofh")
         self.user_client = User.objects.create(username="Client", email="client@internet.isp")
         self.ca_key = Key.new_from_pem(CA_KEY, "R00tz", self.user_admin)
+        self.ca_key.save()
         self.c_key = Key.new_from_pem(C_KEY, "1234", self.user_client)
+        self.c_key.save()
         self.ca_cert = Certificate.new_from_pem(CA_CERT, user=self.user_admin, key=self.ca_key)
+        self.ca_cert.save()
         self.c_cert = Certificate.new_from_pem(C_CERT, user=self.user_client, key=self.c_key)
         self.c_cert.issuer = self.ca_cert
+        self.c_cert.save()
 
     def testBasicTextPKCS7(self):
         """Try to sign a basic text
@@ -239,10 +243,47 @@ class SignatureTestCase(TestCase):
         signed.save()
 
         # Verify
+        signed = Signature.objects.get(pk=1)
         result = signed.check_pkcs7()
         self.assertTrue(result)
-        #result = self.c_cert.verify_smime(data_signed)
-        #self.assertTrue(result)
+        result = signed.check()
+        self.assertTrue(result)
+        auth1.name = "JR"
+        auth1.save()
+        signed = Signature.objects.get(pk=1)
+        result = signed.check()
+        self.assertFalse(result)
+
+    def testFileModelSignature(self):
+        """Try to sign a basic model and get a Signature
+        """
+        from tempfile import NamedTemporaryFile
+        f = NamedTemporaryFile()
+        f.write("My text")
+        # Sign
+        book1 = Book(name="A book", afile=f.name)
+        book1.save()
+        self.c_cert.save()
+        # Temp
+        self.assertRaises(NotImplementedError, self.c_cert.make_signature, book1, self.c_pwd)
+        return
+
+        signed = self.c_cert.make_signature(book1, self.c_pwd)
+        self.assertTrue(isinstance(signed, Signature))
+        content_type = ContentType.objects.get_for_model(book1)
+        self.assertEqual(signed.content_type, content_type)
+        self.assertEqual(signed.object_id, 1)
+        signed.save()
+
+        # Verify
+        result = signed.check_pkcs7()
+        self.assertTrue(result)
+        result = signed.check()
+        self.assertTrue(result)
+        f.seek(0)
+        f.write("My taxt")
+        result = signed.check()
+        self.assertFalse(result)
 
 ##################################
 # Following tests are just for

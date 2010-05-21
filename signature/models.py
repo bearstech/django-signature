@@ -1,11 +1,12 @@
 from django.db import models
-from django.core import serializers
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
 from django.contrib.auth.models import User
 from django.utils.translation import ugettext_lazy as _
+from django.utils.encoding import smart_str
 from M2Crypto import BIO, m2, ASN1, RSA, EVP, X509, SMIME
 from M2Crypto.util import no_passphrase_callback
+from signature import utils
 
 def quiet_callback(*args):
         return
@@ -128,7 +129,19 @@ class Signature(models.Model):
         """Check PKCS7 signature
         (don't compare with original model)
         """
-        return self.certificate.verify_smime(self.pkcs7)
+        pkcs7 = smart_str(self.pkcs7)
+        return self.certificate.verify_smime(pkcs7)
+
+    def check(self):
+        """Check Signature
+        """
+        pkcs7_data = self.check_pkcs7()
+        if not pkcs7_data:
+            return False
+        # TODO : That is ugly !
+        pkcs7_data = pkcs7_data.replace("\r\n", "\n")
+        serialized = utils.serialize(self.content_object)
+        return serialized == pkcs7_data
 
 class Certificate(models.Model):
     """An x509 certificate
@@ -148,7 +161,8 @@ class Certificate(models.Model):
     def m2_x509(self):
         """Return M2Crypto's x509 instance of certificate
         """
-        cert = X509.load_cert_string(self.pem, X509.FORMAT_PEM)
+        pem = smart_str(self.pem)
+        cert = X509.load_cert_string(pem, X509.FORMAT_PEM)
         return cert
 
     def generate_x509_root(self, passphrase=None):
@@ -280,17 +294,10 @@ class Certificate(models.Model):
         data_signed = out.read()
         return data_signed
 
-    def sign_model(self, obj, passphrase, use_natural_keys=False):
+    def sign_model(self, obj, passphrase, use_natural_keys=False, *args, **kwargs):
         """Sign a model instance or a queryset
         """
-        data = [obj]
-        try:
-            serialized = serializers.serialize('yaml', data, use_natural_keys=use_natural_keys)
-        except TypeError:
-            # Fallback for django <= 1.1
-            from signature.utils import SMIMESerializer
-            serializer = SMIMESerializer()
-            serialized = serializer.serialize(data, use_natural_keys=use_natural_keys)
+        serialized = utils.serialize(obj, use_natural_keys=use_natural_keys, *args, **kwargs)
         signed = self.sign_text(serialized, passphrase)
         return signed
 

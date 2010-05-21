@@ -2,6 +2,7 @@ import datetime
 from django import forms
 from django.core.serializers.pyyaml import Serializer as DjangoYAMLEncoder
 from django.core.serializers.pyyaml import DjangoSafeDumper
+from django.core import serializers
 from django.db import models
 from django.forms import fields
 
@@ -85,3 +86,15 @@ class SMIMESerializer(DjangoYAMLEncoder):
         self.options.pop('fields', None)
         self.options.pop('use_natural_keys', None)
         yaml.dump(self.objects, self.stream, Dumper=DjangoSafeDumper, **self.options)
+
+def serialize(obj, use_natural_keys=False):
+    """
+    """
+    data = [obj]
+    try:
+        serialized = serializers.serialize('yaml', data, use_natural_keys=use_natural_keys)
+    except TypeError:
+        # Fallback for django 1.1
+        serializer = SMIMESerializer()
+        serialized = serializer.serialize(data, use_natural_keys=use_natural_keys)
+    return serialized

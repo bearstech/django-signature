@@ -47,3 +47,13 @@ class AuthorProxy(Author):
         def aprint(self):
             return "I'm a proxy : %s" % self.name
 
+class Book(models.Model):
+    name = models.CharField(_('Name'), max_length=100, default="The Hitchhiker's Guide to the Galaxy", unique=True)
+    afile = models.FileField(upload_to="/")
+    apicture = models.ImageField(upload_to="/", null=True)
+
+    def __unicode__(self):
+        return self.name
+
+    def natural_key(self):
+        return (self.name,)
