@@ -16,7 +16,6 @@ import yaml
 
 
 # The code here is a copy of django/core/serializers source files
-# May be removed after 1.2 final
 # Code of SMIMESerializer class is in BSD Licence
 
 class SMIMESerializer(DjangoYAMLEncoder):
@@ -91,10 +90,6 @@ def serialize(obj, use_natural_keys=False):
     """
     """
     data = [obj]
-    try:
-        serialized = serializers.serialize('yaml', data, use_natural_keys=use_natural_keys)
-    except TypeError:
-        # Fallback for django 1.1
-        serializer = SMIMESerializer()
-        serialized = serializer.serialize(data, use_natural_keys=use_natural_keys)
+    serializer = SMIMESerializer()
+    serialized = serializer.serialize(data, use_natural_keys=use_natural_keys)
     return serialized
