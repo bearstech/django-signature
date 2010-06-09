@@ -120,8 +120,8 @@ class Signature(models.Model):
     """A PKCS#7 signature for a model
     """
     certificate = models.ForeignKey('Certificate')
-    object_id = models.PositiveIntegerField()
-    content_type = models.ForeignKey(ContentType)
+    object_id = models.PositiveIntegerField(null=True)
+    content_type = models.ForeignKey(ContentType, null=True)
     content_object = generic.GenericForeignKey('content_type', 'object_id')
     pkcs7 = models.TextField()
 
@@ -324,7 +324,6 @@ class Certificate(models.Model):
         except SMIME.PKCS7_Error:
             return False
         return data.read()
-
 
     def make_signature(self, instance, passphrase, fields=[], exclude=[]):
         """Sign a Model instance with passphrase
