@@ -3,14 +3,14 @@ from setuptools import setup
 
 
 
-readme = open(os.path.join(os.path.dirname(__file__), 'README')).read()
+readme = open(os.path.join(os.path.dirname(__file__), 'README.rst')).read()
 
 setup(
         name     = 'django-signature',
         version  = '0.1',
         packages = ['signature'],
 
-        requires = ['python (>= 2.4)', 'django (>= 1.0)', "M2Crypto (>= 0.18)"],
+        requires = ['python (>= 2.4)', 'django (>= 1.1)', "M2Crypto (>= 0.18)"],
 
         description  = 'Django application to generate and sign Models.',
         long_description = readme,
@@ -19,9 +19,9 @@ setup(
         url          = 'http://github.com/bearstech/django-signature',
         download_url = '',
         license      = 'GPL v3',
-        keywords     = 'django models crypto openssl',
+        keywords     = 'django models crypto openssl pki',
         classifiers  = [
-                    'Development Status :: 2 - Pre-Alpha',
+                    'Development Status :: 3 - Alpha Development Status',
                     'Environment :: Web Environment',
                     'Framework :: Django',
                     'Intended Audience :: Developers',

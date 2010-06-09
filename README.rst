@@ -3,7 +3,7 @@ django-signature
 
 Application to generate x509 certificates and sign models
 
-ALPHA : NOT FOR PRODUCTION USE
+Alpha : not really for production use
 
 Features :
 ----------
