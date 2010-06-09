@@ -28,9 +28,7 @@ Todo :
 Examples :
 ----------
 
-There is an simple PKI example:
-
-.. code-block:: python
+There is an simple PKI example::
 
     from signature.models import Key, Certificate, Request
     from datetime import datetime
@@ -66,9 +64,7 @@ There is an simple PKI example:
 
 For more examples, see SignaturePKITestCase into tests/test_project/apps/testapp/tests.py
 
-There is an simple signature example:
-
-.. code-block:: python
+There is an simple signature example::
 
     # Sign Text
     text = "This is a data"
