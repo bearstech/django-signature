@@ -164,6 +164,52 @@ class SignaturePKITestCase(TestCase):
         self.assertEqual(c_cert.serial, 1)
         self.assertEqual(ca_cert.ca_serial, 2)
 
+    def testSignaturePKIca(self):
+        """Client certificate is a CA
+        """
+        before = datetime(2010, 01, 01, 6, tzinfo=ASN1.UTC)
+        after = datetime(2015, 01, 01, 6, tzinfo=ASN1.UTC)
+        ca_pwd = "R00tz"
+        c_pwd = "1234"
+        c2_pwd = "abcd"
+
+        # CA and Client keys
+        ca_key = Key.generate(ca_pwd)
+        c_key = Key.generate(c_pwd)
+        c2_key = Key.generate(c2_pwd)
+
+        # CA Cert
+        ca_cert = Certificate()
+        ca_cert.CN = "Admin"
+        ca_cert.C = "FR"
+        ca_cert.key = ca_key
+        ca_cert.begin = before
+        ca_cert.end = after
+        ca_cert.is_ca = True
+        ca_cert.generate_x509_root(ca_pwd)
+
+        # Client's request
+        rqst = Request()
+        rqst.CN = "World Company"
+        rqst.C = "FR"
+        rqst.key = c_key
+        rqst.sign_request(c_pwd)
+
+        c_cert = ca_cert.sign_request(rqst, before, after, ca_pwd, ca=True)
+        self.assertEqual(c_cert.serial, 1)
+        self.assertEqual(ca_cert.ca_serial, 2)
+
+        # Client's request
+        rqst = Request()
+        rqst.CN = "Country Company"
+        rqst.C = "FR"
+        rqst.key = c2_key
+        rqst.sign_request(c2_pwd)
+
+        c2_cert = c_cert.sign_request(rqst, before, after, c_pwd)
+        self.assertEqual(c2_cert.serial, 1)
+        self.assertEqual(c_cert.ca_serial, 2)
+
 class SignatureTestCase(TestCase):
     """Tests with django Signature + M2Cryto
     Sign some models

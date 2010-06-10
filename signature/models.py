@@ -207,7 +207,7 @@ class Certificate(models.Model):
         ca_cert.sign(ca_pkey, md='sha1')
         self.pem = ca_cert.as_pem()
 
-    def sign_request(self, rqst, not_before, not_after, passphrase=None):
+    def sign_request(self, rqst, not_before, not_after, passphrase=None, ca=False):
         """Sign a Request and return a Certificate instance
         """
         # TODO : class for C / CN and all attributes
@@ -246,6 +246,12 @@ class Certificate(models.Model):
         m2_cert.set_issuer_name(ca_name)
         # Subject
         m2_cert.set_subject_name(c_name)
+        if ca:
+            # Add CA Constraint
+            ext = X509.new_extension('basicConstraints', 'CA:TRUE')
+            m2_cert.add_ext(ext)
+            c_cert.is_ca = True
+            c_cert.ca_serial = 1
         # Sign Cert with CA's privkey
         m2_cert.sign(ca_pkey, md='sha1')
         c_cert.pem = m2_cert.as_pem()
