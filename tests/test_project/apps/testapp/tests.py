@@ -62,7 +62,7 @@ class SignaturePKITestCase(TestCase):
         key.save()
         cert = Certificate()
         cert.CN = "My CN"
-        cert.C = "FR"
+        cert.country = "FR"
         cert.key = key
         cert.begin = before
         cert.end = after
@@ -94,7 +94,7 @@ class SignaturePKITestCase(TestCase):
         cert = Certificate.new_from_pem(CA_CERT)
         cert.save()
         self.assertTrue(cert.CN == "Admin")
-        self.assertTrue(cert.C == "FR")
+        self.assertTrue(cert.country == "FR")
         self.assertTrue(cert.begin == before)
         self.assertTrue(cert.end == after)
         self.assertTrue(cert.is_ca)
@@ -109,9 +109,11 @@ class SignaturePKITestCase(TestCase):
         key.save()
         rqst = Request()
         rqst.CN = "World Company"
-        rqst.C = "FR"
+        rqst.country = "FR"
         rqst.key = key
         rqst.sign_request(user_pwd)
+        # Add date
+        rqst.created = datetime.now()
         rqst.save()
         rqst_pem = rqst.pem
 
@@ -127,7 +129,7 @@ class SignaturePKITestCase(TestCase):
         rqst = Request.new_from_pem(C_REQUEST)
         rqst.save()
         self.assertTrue(rqst.CN == "World Company")
-        self.assertTrue(rqst.C == "FR")
+        self.assertTrue(rqst.country == "FR")
         rqst_text = X509.load_request_string(rqst.pem, X509.FORMAT_PEM).as_text()
         self.assertTrue(rqst_text == m2rqst_text)
 
@@ -146,7 +148,7 @@ class SignaturePKITestCase(TestCase):
         # CA Cert
         ca_cert = Certificate()
         ca_cert.CN = "Admin"
-        ca_cert.C = "FR"
+        ca_cert.country = "FR"
         ca_cert.key = ca_key
         ca_cert.begin = before
         ca_cert.end = after
@@ -156,7 +158,7 @@ class SignaturePKITestCase(TestCase):
         # Client's request
         rqst = Request()
         rqst.CN = "World Company"
-        rqst.C = "FR"
+        rqst.country = "FR"
         rqst.key = c_key
         rqst.sign_request(c_pwd)
 
@@ -181,7 +183,7 @@ class SignaturePKITestCase(TestCase):
         # CA Cert
         ca_cert = Certificate()
         ca_cert.CN = "Admin"
-        ca_cert.C = "FR"
+        ca_cert.country = "FR"
         ca_cert.key = ca_key
         ca_cert.begin = before
         ca_cert.end = after
@@ -191,7 +193,7 @@ class SignaturePKITestCase(TestCase):
         # Client's request
         rqst = Request()
         rqst.CN = "World Company"
-        rqst.C = "FR"
+        rqst.country = "FR"
         rqst.key = c_key
         rqst.sign_request(c_pwd)
 
@@ -202,7 +204,7 @@ class SignaturePKITestCase(TestCase):
         # Client's request
         rqst = Request()
         rqst.CN = "Country Company"
-        rqst.C = "FR"
+        rqst.country = "FR"
         rqst.key = c2_key
         rqst.sign_request(c2_pwd)
 

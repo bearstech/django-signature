@@ -8,6 +8,59 @@ from M2Crypto import BIO, m2, ASN1, RSA, EVP, X509, SMIME
 from M2Crypto.util import no_passphrase_callback
 from signature import utils
 
+from datetime import datetime
+
+COUNTRY = (
+    ('AD', 'AD'),('AE', 'AE'),('AF', 'AF'),('AG', 'AG'),('AI', 'AI'),('AL', 'AL'),('AM', 'AM'),
+    ('AN', 'AN'),('AO', 'AO'),('AQ', 'AQ'),('AR', 'AR'),('AS', 'AS'),('AT', 'AT'),('AU', 'AU'),
+    ('AW', 'AW'),('AZ', 'AZ'),('BA', 'BA'),('BB', 'BB'),('BD', 'BD'),('BE', 'BE'),('BF', 'BF'),
+    ('BG', 'BG'),('BH', 'BH'),('BI', 'BI'),('BJ', 'BJ'),('BM', 'BM'),('BN', 'BN'),('BO', 'BO'),
+    ('BR', 'BR'),('BS', 'BS'),('BT', 'BT'),('BU', 'BU'),('BV', 'BV'),('BW', 'BW'),('BY', 'BY'),
+    ('BZ', 'BZ'),('CA', 'CA'),('CC', 'CC'),('CF', 'CF'),('CG', 'CG'),('CH', 'CH'),('CI', 'CI'),
+    ('CK', 'CK'),('CL', 'CL'),('CM', 'CM'),('CN', 'CN'),('CO', 'CO'),('CR', 'CR'),('CS', 'CS'),
+    ('CU', 'CU'),('CV', 'CV'),('CX', 'CX'),('CY', 'CY'),('CZ', 'CZ'),('DD', 'DD'),('DE', 'DE'),
+    ('DJ', 'DJ'),('DK', 'DK'),('DM', 'DM'),('DO', 'DO'),('DZ', 'DZ'),('EC', 'EC'),('EE', 'EE'),
+    ('EG', 'EG'),('EH', 'EH'),('ER', 'ER'),('ES', 'ES'),('ET', 'ET'),('FI', 'FI'),('FJ', 'FJ'),
+    ('FK', 'FK'),('FM', 'FM'),('FO', 'FO'),('FR', 'FR'),('FX', 'FX'),('GA', 'GA'),('GB', 'GB'),
+    ('GD', 'GD'),('GE', 'GE'),('GF', 'GF'),('GH', 'GH'),('GI', 'GI'),('GL', 'GL'),('GM', 'GM'),
+    ('GN', 'GN'),('GP', 'GP'),('GQ', 'GQ'),('GR', 'GR'),('GS', 'GS'),('GT', 'GT'),('GU', 'GU'),
+    ('GW', 'GW'),('GY', 'GY'),('HK', 'HK'),('HM', 'HM'),('HN', 'HN'),('HR', 'HR'),('HT', 'HT'),
+    ('HU', 'HU'),('ID', 'ID'),('IE', 'IE'),('IL', 'IL'),('IN', 'IN'),('IO', 'IO'),('IQ', 'IQ'),
+    ('IR', 'IR'),('IS', 'IS'),('IT', 'IT'),('JM', 'JM'),('JO', 'JO'),('JP', 'JP'),('KE', 'KE'),
+    ('KG', 'KG'),('KH', 'KH'),('KI', 'KI'),('KM', 'KM'),('KN', 'KN'),('KP', 'KP'),('KR', 'KR'),
+    ('KW', 'KW'),('KY', 'KY'),('KZ', 'KZ'),('LA', 'LA'),('LB', 'LB'),('LC', 'LC'),('LI', 'LI'),
+    ('LK', 'LK'),('LR', 'LR'),('LS', 'LS'),('LT', 'LT'),('LU', 'LU'),('LV', 'LV'),('LY', 'LY'),
+    ('MA', 'MA'),('MC', 'MC'),('MD', 'MD'),('MG', 'MG'),('MH', 'MH'),('ML', 'ML'),('MM', 'MM'),
+    ('MN', 'MN'),('MO', 'MO'),('MP', 'MP'),('MQ', 'MQ'),('MR', 'MR'),('MS', 'MS'),('MT', 'MT'),
+    ('MU', 'MU'),('MV', 'MV'),('MW', 'MW'),('MX', 'MX'),('MY', 'MY'),('MZ', 'MZ'),('NA', 'NA'),
+    ('NC', 'NC'),('NE', 'NE'),('NF', 'NF'),('NG', 'NG'),('NI', 'NI'),('NL', 'NL'),('NO', 'NO'),
+    ('NP', 'NP'),('NR', 'NR'),('NT', 'NT'),('NU', 'NU'),('NZ', 'NZ'),('OM', 'OM'),('PA', 'PA'),
+    ('PE', 'PE'),('PF', 'PF'),('PG', 'PG'),('PH', 'PH'),('PK', 'PK'),('PL', 'PL'),('PM', 'PM'),
+    ('PN', 'PN'),('PR', 'PR'),('PT', 'PT'),('PW', 'PW'),('PY', 'PY'),('QA', 'QA'),('RE', 'RE'),
+    ('RO', 'RO'),('RU', 'RU'),('RW', 'RW'),('SA', 'SA'),('SB', 'SB'),('SC', 'SC'),('SD', 'SD'),
+    ('SE', 'SE'),('SG', 'SG'),('SH', 'SH'),('SI', 'SI'),('SJ', 'SJ'),('SK', 'SK'),('SL', 'SL'),
+    ('SM', 'SM'),('SN', 'SN'),('SO', 'SO'),('SR', 'SR'),('ST', 'ST'),('SU', 'SU'),('SV', 'SV'),
+    ('SY', 'SY'),('SZ', 'SZ'),('TC', 'TC'),('TD', 'TD'),('TF', 'TF'),('TG', 'TG'),('TH', 'TH'),
+    ('TJ', 'TJ'),('TK', 'TK'),('TM', 'TM'),('TN', 'TN'),('TO', 'TO'),('TP', 'TP'),('TR', 'TR'),
+    ('TT', 'TT'),('TV', 'TV'),('TW', 'TW'),('TZ', 'TZ'),('UA', 'UA'),('UG', 'UG'),('UM', 'UM'),
+    ('US', 'US'),('UY', 'UY'),('UZ', 'UZ'),('VA', 'VA'),('VC', 'VC'),('VE', 'VE'),('VG', 'VG'),
+    ('VI', 'VI'),('VN', 'VN'),('VU', 'VU'),('WF', 'WF'),('WS', 'WS'),('YD', 'YD'),('YE', 'YE'),
+    ('YT', 'YT'),('YU', 'YU'),('ZA', 'ZA'),('ZM', 'ZM'),('ZR', 'ZR'),('ZW', 'ZW'),('ZZ', 'ZZ'),
+    ('ZZ', 'ZZ'),
+    )
+
+
+class BaseCert(models.Model):
+    """Base Certificate for Models
+    """
+    country = models.CharField(max_length=2, choices=COUNTRY)
+    state  = models.CharField(max_length=32, null=True)
+    locality = models.CharField(max_length=32, null=True)
+    organization = models.CharField(max_length=64, null=True)
+    created = models.DateTimeField()
+    CN = models.CharField(max_length=50)
+
+
 def quiet_callback(*args):
         return
 
@@ -75,14 +128,12 @@ class Key(models.Model):
         key.length = len(m2key)
         return key
 
-class Request(models.Model):
+class Request(BaseCert):
     """A CSR
     """
     user = models.ForeignKey(User, null=True)
     key = models.ForeignKey(Key, null=True)
     pem = models.TextField(editable=False)
-    C = models.CharField(max_length=2)
-    CN = models.CharField(max_length=50)
 
     def m2_request(self):
         """Return M2Crypto's Request instance
@@ -97,7 +148,7 @@ class Request(models.Model):
         # Generate CA Request
         rqst = X509.Request()
         issuer_name = rqst.get_subject()
-        issuer_name.C = self.C
+        issuer_name.C = self.country
         issuer_name.CN = self.CN
         issuer_pkey = self.key.m2_pkey(passphrase)
         rqst.set_pubkey(issuer_pkey)
@@ -112,8 +163,10 @@ class Request(models.Model):
         m2rqst = X509.load_request_string(pem, X509.FORMAT_PEM)
         rqst.pem = m2rqst.as_pem()
         subject = m2rqst.get_subject()
-        rqst.C = subject.C
+        rqst.country = subject.C
         rqst.CN = subject.CN
+        # Add date
+        rqst.created = datetime.now()
         return rqst
 
 class Signature(models.Model):
@@ -143,14 +196,12 @@ class Signature(models.Model):
         serialized = utils.serialize(self.content_object)
         return serialized == pkcs7_data
 
-class Certificate(models.Model):
+class Certificate(BaseCert):
     """An x509 certificate
     """
     user = models.ForeignKey(User, null=True)
     key = models.ForeignKey(Key, null=True)
     pem = models.TextField(editable=False)
-    C = models.CharField(max_length=2)
-    CN = models.CharField(max_length=50)
     begin = models.DateTimeField()
     end = models.DateTimeField()
     serial = models.PositiveIntegerField(editable=False)
@@ -172,7 +223,7 @@ class Certificate(models.Model):
         # Generate CA Request
         rqst = X509.Request()
         ca_name = rqst.get_subject()
-        ca_name.C = self.C
+        ca_name.C = self.country
         ca_name.CN = self.CN
         ca_pkey = self.key.m2_pkey(passphrase)
 
@@ -206,6 +257,8 @@ class Certificate(models.Model):
         # Sign CA with CA's privkey
         ca_cert.sign(ca_pkey, md='sha1')
         self.pem = ca_cert.as_pem()
+        # Add date
+        self.created = datetime.now()
 
     def sign_request(self, rqst, not_before, not_after, passphrase=None, ca=False):
         """Sign a Request and return a Certificate instance
@@ -215,7 +268,7 @@ class Certificate(models.Model):
         m2rqst = rqst.m2_request()
         c_name = m2rqst.get_subject()
         c_cert = Certificate()
-        c_cert.C = c_name.C
+        c_cert.country = c_name.C
         c_cert.CN = c_name.CN
         c_cert.end = not_after
         c_cert.begin = not_before
@@ -241,7 +294,7 @@ class Certificate(models.Model):
         m2_cert.set_pubkey(m2rqst.get_pubkey())
         # Issuer
         ca_name = X509.X509_Name()
-        ca_name.C = self.C
+        ca_name.C = self.country
         ca_name.CN = self.CN
         m2_cert.set_issuer_name(ca_name)
         # Subject
@@ -255,6 +308,8 @@ class Certificate(models.Model):
         # Sign Cert with CA's privkey
         m2_cert.sign(ca_pkey, md='sha1')
         c_cert.pem = m2_cert.as_pem()
+        # Add date
+        c_cert.created = datetime.now()
 
         # And return new instance
         return c_cert
@@ -267,11 +322,13 @@ class Certificate(models.Model):
         x509 = X509.load_cert_string(pem, X509.FORMAT_PEM)
         cert.pem = x509.as_pem()
         issuer = x509.get_issuer()
-        cert.C = issuer.C
+        cert.country = issuer.C
         cert.CN = issuer.CN
         cert.serial = x509.get_serial_number()
         cert.begin = x509.get_not_before().get_datetime()
         cert.end = x509.get_not_after().get_datetime()
+        # Add date
+        cert.created = datetime.now()
         if x509.check_ca():
             cert.is_ca = True
         return cert
