@@ -30,7 +30,7 @@ Examples :
 
 There is an simple PKI example::
 
-    from signature.models import Key, Certificate, Request
+    from signature.models import Key, Certificate, CertificateRequest
     from datetime import datetime
 
     before = datetime(2010, 01, 01)
@@ -53,7 +53,7 @@ There is an simple PKI example::
     ca_cert.generate_x509_root(ca_pwd)
 
     # Client's request
-    rqst = Request()
+    rqst = CertificateRequest()
     rqst.CN = "World Company"
     rqst.C = "FR"
     rqst.key = c_key

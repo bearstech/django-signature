@@ -1,13 +1,13 @@
 from django.contrib import admin
-from models import Key, Request, Signature, Certificate
+from models import Key, Request, Signature, CertificateRequest
 
 class KeyAdmin(admin.ModelAdmin):
     pass
 admin.site.register(Key, KeyAdmin)
 
-class RequestAdmin(admin.ModelAdmin):
+class CertificateRequestAdmin(admin.ModelAdmin):
     pass
-admin.site.register(Request, RequestAdmin)
+admin.site.register(CertificateRequest, CertificateRequestAdmin)
 
 class SignatureAdmin(admin.ModelAdmin):
     pass

@@ -11,7 +11,7 @@ from M2Crypto import m2, ASN1, RSA, EVP, X509, BIO, SMIME
 from datetime import datetime
 from tempfile import NamedTemporaryFile, TemporaryFile
 
-from signature.models import Key, Certificate, Request, Signature
+from signature.models import Key, Certificate, CertificateRequest, Signature
 from certificates import C_KEY, CA_KEY ,C_PUB_KEY, CA_CERT, C_REQUEST, C_CERT
 
 from models import Author, Whatamess, Book
@@ -107,7 +107,7 @@ class SignaturePKITestCase(TestCase):
         user_pwd = "tata"
         key = Key.generate(user_pwd)
         key.save()
-        rqst = Request()
+        rqst = CertificateRequest()
         rqst.CN = "World Company"
         rqst.country = "FR"
         rqst.key = key
@@ -126,7 +126,7 @@ class SignaturePKITestCase(TestCase):
         """
         m2rqst_text = X509.load_request_string(C_REQUEST, X509.FORMAT_PEM).as_text()
 
-        rqst = Request.new_from_pem(C_REQUEST)
+        rqst = CertificateRequest.new_from_pem(C_REQUEST)
         rqst.save()
         self.assertTrue(rqst.CN == "World Company")
         self.assertTrue(rqst.country == "FR")
@@ -156,7 +156,7 @@ class SignaturePKITestCase(TestCase):
         ca_cert.generate_x509_root(ca_pwd)
 
         # Client's request
-        rqst = Request()
+        rqst = CertificateRequest()
         rqst.CN = "World Company"
         rqst.country = "FR"
         rqst.key = c_key
@@ -191,7 +191,7 @@ class SignaturePKITestCase(TestCase):
         ca_cert.generate_x509_root(ca_pwd)
 
         # Client's request
-        rqst = Request()
+        rqst = CertificateRequest()
         rqst.CN = "World Company"
         rqst.country = "FR"
         rqst.key = c_key
@@ -202,7 +202,7 @@ class SignaturePKITestCase(TestCase):
         self.assertEqual(ca_cert.ca_serial, 2)
 
         # Client's request
-        rqst = Request()
+        rqst = CertificateRequest()
         rqst.CN = "Country Company"
         rqst.country = "FR"
         rqst.key = c2_key

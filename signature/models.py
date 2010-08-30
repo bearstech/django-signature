@@ -128,7 +128,7 @@ class Key(models.Model):
         key.length = len(m2key)
         return key
 
-class Request(BaseCert):
+class CertificateRequest(BaseCert):
     """A CSR
     """
     user = models.ForeignKey(User, null=True)
