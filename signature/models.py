@@ -60,6 +60,8 @@ class BaseCert(models.Model):
     created = models.DateTimeField()
     CN = models.CharField(max_length=50)
 
+    class Meta:
+                abstract = True
 
 def quiet_callback(*args):
         return
