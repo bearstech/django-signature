@@ -1,5 +1,5 @@
 from django.contrib import admin
-from models import Key, Request, Signature, CertificateRequest
+from models import Key, CertificateRequest, Signature, Certificate
 
 class KeyAdmin(admin.ModelAdmin):
     pass
