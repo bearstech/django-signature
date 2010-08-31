@@ -112,8 +112,6 @@ class SignaturePKITestCase(TestCase):
         rqst.country = "FR"
         rqst.key = key
         rqst.sign_request(user_pwd)
-        # Add date
-        rqst.created = datetime.now()
         rqst.save()
         rqst_pem = rqst.pem
 

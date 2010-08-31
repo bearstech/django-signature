@@ -155,6 +155,8 @@ class CertificateRequest(BaseCert):
         issuer_pkey = self.key.m2_pkey(passphrase)
         rqst.set_pubkey(issuer_pkey)
         rqst.sign(pkey=issuer_pkey, md='sha1')
+        # Add date
+        self.created = datetime.now()
         self.pem = rqst.as_pem()
 
     @classmethod
