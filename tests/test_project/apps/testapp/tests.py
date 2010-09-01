@@ -161,9 +161,19 @@ class SignaturePKITestCase(TestCase):
         rqst.key = c_key
         rqst.sign_request(c_pwd)
 
-        c_cert = ca_cert.sign_request(rqst, before, after, ca_pwd)
-        self.assertEqual(c_cert.serial, 1)
+        c_cert = ca_cert.sign_request(rqst, 300, ca_pwd)
+        self.assertEqual(c_cert.serial, 2L)
         self.assertEqual(ca_cert.ca_serial, 2)
+
+        # Just test Certificate.m2_x509() method
+        x509 = X509.load_cert_string(c_cert.pem, X509.FORMAT_PEM)
+        m2x509 = c_cert.m2_x509()
+        self.assertTrue(x509.as_text() == m2x509.as_text())
+
+        self.assertTrue("Issuer: CN=Admin, C=FR" in m2x509.as_text())
+        self.assertTrue("Subject: C=FR, CN=World Company" in m2x509.as_text())
+        self.assertTrue("X509v3 Authority Key Identifier" in m2x509.as_text())
+        self.assertTrue("X509v3 Subject Key Identifier" in m2x509.as_text())
 
     def testSignaturePKIca(self):
         """Client certificate is a CA
@@ -196,9 +206,20 @@ class SignaturePKITestCase(TestCase):
         rqst.key = c_key
         rqst.sign_request(c_pwd)
 
-        c_cert = ca_cert.sign_request(rqst, before, after, ca_pwd, ca=True)
-        self.assertEqual(c_cert.serial, 1)
+        c_cert = ca_cert.sign_request(rqst, 200, ca_pwd, ca=True)
+        self.assertEqual(c_cert.serial, 2L)
         self.assertEqual(ca_cert.ca_serial, 2)
+
+        # Just test Certificate.m2_x509() method
+        x509 = X509.load_cert_string(c_cert.pem, X509.FORMAT_PEM)
+        m2x509 = c_cert.m2_x509()
+        self.assertTrue(x509.as_text() == m2x509.as_text())
+
+        self.assertTrue("CA:TRUE" in m2x509.as_text())
+        self.assertTrue("Issuer: CN=Admin, C=FR" in m2x509.as_text())
+        self.assertTrue("Subject: C=FR, CN=World Company" in m2x509.as_text())
+        self.assertTrue("X509v3 Authority Key Identifier" in m2x509.as_text())
+        self.assertTrue("X509v3 Subject Key Identifier" in m2x509.as_text())
 
         # Client's request
         rqst = CertificateRequest()
@@ -207,9 +228,19 @@ class SignaturePKITestCase(TestCase):
         rqst.key = c2_key
         rqst.sign_request(c2_pwd)
 
-        c2_cert = c_cert.sign_request(rqst, before, after, c_pwd)
-        self.assertEqual(c2_cert.serial, 1)
+        c2_cert = c_cert.sign_request(rqst, 150, c_pwd)
+        self.assertEqual(c2_cert.serial, 2L)
         self.assertEqual(c_cert.ca_serial, 2)
+
+        # Just test Certificate.m2_x509() method
+        x509 = X509.load_cert_string(c2_cert.pem, X509.FORMAT_PEM)
+        m2x509 = c2_cert.m2_x509()
+        self.assertTrue(x509.as_text() == m2x509.as_text())
+
+        self.assertTrue("Issuer: C=FR, CN=World Company" in m2x509.as_text())
+        self.assertTrue("Subject: C=FR, CN=Country Company" in m2x509.as_text())
+        self.assertTrue("X509v3 Authority Key Identifier" in m2x509.as_text())
+        self.assertTrue("X509v3 Subject Key Identifier" in m2x509.as_text())
 
 class SignatureTestCase(TestCase):
     """Tests with django Signature + M2Cryto

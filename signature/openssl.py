@@ -158,6 +158,11 @@ class Openssl():
         ## Generate a random string as ENV variable name
         self.env_pw = "".join(random.sample(string.letters+string.digits, 10))
 
+        self.conf = NamedTemporaryFile()
+        self.conf.write(PKI_OPENSSL_CONF)
+        self.conf.seek(0)
+        self.confname = self.conf.name
+
     def exec_openssl(self, command, stdin ,env_vars=None):
         '''Run openssl command. PKI_OPENSSL_BIN doesn't need to be specified'''
 
@@ -205,7 +210,7 @@ class Openssl():
 
         logger.info( 'Generating self-signed root certificate' )
 
-        #command = ['req', '-config', PKI_OPENSSL_CONF, '-verbose', '-batch', '-sha1', '-new', '-x509', '-subj', subj, '-days', str(days), \
+        #command = ['req', '-config', self.confname, '-batch', '-sha1', '-new', '-x509', '-subj', subj, '-days', str(days), \
         command = ['req', '-batch', '-sha1', '-new', '-x509', '-subj', subj, '-days', str(days), \
                    '-extensions', 'v3_ca', '-key', key_f.name, '-passin', 'stdin']
 
@@ -231,80 +236,31 @@ class Openssl():
 
         return True
 
-    def generate_pkcs12_encoded(self):
-        '''Generate a PKCS12 encoded version of a given certificate'''
-
-        logger.info( 'Generating PKCS12 encoded certificate for %s' % self.i.name )
-
-        command = 'pkcs12 -export -nokeys -in %s -inkey %s -out %s -passout env:%s' % (self.crt, self.key, self.pkcs12, self.env_pw)
-        self.exec_openssl(command.split(), env_vars={ self.env_pw: str(self.i.pkcs12_passphrase) })
-
-    def remove_complete_certificate(self):
-        '''Remove all files related to the given certificate'''
-
-        self.remove_der_encoded()
-        self.remove_pkcs12_encoded()
-
-        hash = "%s/%s.0" % (self.parent_certs, self.get_hash_from_cert())
-        if os.path.exists(hash):
-            os.remove(hash)
-
-        serial = "%s/%s.pem" % (self.parent_certs, self.get_serial_from_cert())
-        if os.path.exists(serial):
-            os.remove(serial)
-
-        if os.path.exists(self.csr):
-            os.remove(self.csr)
-
-        if os.path.exists(self.key):
-            os.remove(self.key)
-
-        if os.path.exists(self.crt):
-            os.remove(self.crt)
-
-        return True
-
-    def remove_der_encoded(self):
-        '''Remove a DER encoded certificate if it exists'''
-
-        if os.path.exists(self.der):
-            logger.info( 'Removal of DER encoded certificate for %s' % self.i.name )
-
-            os.remove(self.der)
-
-        return True
-
-    def remove_pkcs12_encoded(self):
-        '''Remove a PKCS12 encoded certificate if it exists'''
-
-        if self.pkcs12 and os.path.exists(self.pkcs12):
-            logger.info( 'Removal of PKCS12 encoded certificate for %s' % self.i.name )
-
-            os.remove(self.pkcs12)
-
-    def sign_csr(self):
+    def sign_csr(self, csr, cakey, cacrt, serial, days, passphrase=None, ca_capable=False):
         '''Sign the CSR with given CA'''
 
         logger.info( 'Signing CSR' )
 
-        try:
-            extension = "-extensions %s" % self.i.cert_extension
-        except:
-            extension = ""
+        if ca_capable:
+            extension = "v3_ca"
+        else:
+            extension = "usr_cert"
+        csrfile = NamedTemporaryFile()
+        csrfile.write(csr)
+        csrfile.seek(0)
+        cafile = NamedTemporaryFile()
+        cafile.write(cacrt)
+        cafile.seek(0)
+        cakeyfile = NamedTemporaryFile()
+        cakeyfile.write(cakey)
+        cakeyfile.seek(0)
+        serialfile = NamedTemporaryFile()
+        serialfile.write(str(serial).rjust(2,"0"))
+        serialfile.seek(0)
 
-        command = 'ca -config %s -name %s -batch %s -in %s -out %s -days %d %s -passin env:%s' % \
-                  ( PKI_OPENSSL_CONF, self.i.parent, self.ext, self.csr, self.crt, self.i.valid_days, extension, self.env_pw)
-        self.exec_openssl(command.split(), env_vars={ self.env_pw: str(self.i.parent_passphrase), "S_A_N": self.i.subjaltname, })
-
-        ## Get the just created serial
-        if self.parent_certs:
-            serial = self.get_serial_from_cert()
-            hash   = self.get_hash_from_cert()
-
-            if os.path.exists('%s/%s.0' % (self.parent_certs, hash)):
-                os.remove('%s/%s.0' % (self.parent_certs, hash))
-
-            os.symlink('%s.pem' % serial, '%s/%s.0' % (self.parent_certs, hash))
+        command = ['x509', '-req', '-CAserial', serialfile.name,'-extfile', self.confname , '-sha1', '-days', str(days), '-in', csrfile.name, '-CA', cafile.name, '-CAkey', cakeyfile.name, '-passin', 'stdin', '-extensions', extension]
+        pem = self.exec_openssl(command, stdin=passphrase)
+        return pem
 
     def revoke_certificate(self, ppf):
         '''Revoke a given certificate'''
@@ -378,16 +334,6 @@ class Openssl():
         except:
             raise Exception( 'Failed to write chain file!' )
 
-
-    def get_serial_from_cert(self):
-        '''Use openssl to get the serial number from a given certificate'''
-
-        command = 'x509 -in %s -noout -serial' % self.crt
-        output  = self.exec_openssl(command.split())
-
-        x = output.rstrip("\n").split('=')
-
-        return x[1]
 
     def get_hash_from_cert(self):
         '''Use openssl to get the hash value of a given certificate'''

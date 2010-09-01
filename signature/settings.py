@@ -62,3 +62,19 @@ PKI_SELF_SIGNED_SERIAL = getattr(settings, 'PKI_SELF_SIGNED_SERIAL', 0x0)
 # default_country: The default country selected (2-letter country code)
 PKI_DEFAULT_COUNTRY = getattr(settings, 'PKI_DEFAULT_COUNTRY', 'DE')
 
+# Hard config File : very BAD idea .... XXX
+PKI_OPENSSL_CONF = """[ usr_cert ]
+basicConstraints=CA:FALSE
+nsCertType = client, objsign
+keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+nsComment = "Certificate generated for RSE"
+subjectKeyIdentifier=hash
+authorityKeyIdentifier=keyid,issuer
+[ v3_ca ]
+subjectKeyIdentifier=hash
+authorityKeyIdentifier=keyid:always,issuer:always
+basicConstraints = CA:true
+keyUsage = cRLSign, keyCertSign, nonRepudiation, digitalSignature, keyEncipherment
+subjectAltName=email:copy
+issuerAltName=issuer:copy
+"""

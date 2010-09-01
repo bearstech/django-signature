@@ -50,7 +50,6 @@ COUNTRY = (
     ('ZZ', 'ZZ'),
     )
 
-
 class BaseCert(models.Model):
     """Base Certificate for Models
     """
@@ -64,9 +63,8 @@ class BaseCert(models.Model):
     email = models.EmailField(blank=True, null=True)
     user = models.ForeignKey(User, null=True)
 
-
     class Meta:
-                abstract = True
+        abstract = True
 
     def get_subject(self):
         """Return subject string for CSR and self-signed certs
@@ -177,6 +175,10 @@ class CertificateRequest(BaseCert):
         issuer_name = rqst.get_subject()
         issuer_name.C = self.country
         issuer_name.CN = self.CN
+        #issuer_name.L = self.locality # XXX
+        #issuer_name.CN = self.organization
+        #issuer_name.CN = self.OU
+        #issuer_name.CN = self.state
         issuer_pkey = self.key.m2_pkey(passphrase)
         rqst.set_pubkey(issuer_pkey)
         rqst.sign(pkey=issuer_pkey, md='sha1')
@@ -230,8 +232,8 @@ class Certificate(BaseCert):
     """
     key = models.ForeignKey(Key, null=True)
     pem = models.TextField(editable=False)
-    begin = models.DateTimeField()
-    end = models.DateTimeField()
+    begin = models.DateTimeField(editable=False)
+    end = models.DateTimeField(editable=False)
     days = models.IntegerField(null=True)
     serial = models.PositiveIntegerField(editable=False)
     issuer = models.ForeignKey('self', related_name='issuer_set', null=True)
@@ -265,54 +267,35 @@ class Certificate(BaseCert):
         # Add date
         self.created = datetime.now()
 
-    def sign_request(self, rqst, not_before, not_after, passphrase=None, ca=False):
+    def sign_request(self, rqst, days, passphrase=None, ca=False):
         """Sign a Request and return a Certificate instance
         """
-        # TODO : class for C / CN and all attributes
-        # Generate CA Request
-        m2rqst = rqst.m2_request()
-        c_name = m2rqst.get_subject()
+        from signature.openssl import Openssl
+        ossl = Openssl()
+
+        pem = ossl.sign_csr(rqst.pem, self.key.private, self.pem, self.ca_serial, days, passphrase, ca)
+        self.ca_serial += 1
+
         c_cert = Certificate()
-        c_cert.country = c_name.C
-        c_cert.CN = c_name.CN
-        c_cert.end = not_after
-        c_cert.begin = not_before
-        c_cert.key = rqst.key
+        c_cert.pem = pem
         c_cert.user = rqst.user
         c_cert.issuer = self
-        ca_pkey = self.key.m2_pkey(passphrase)
+        c_cert.key = rqst.key
+        c_cert.country = rqst.country
+        c_cert.CN = rqst.CN
+        c_cert.locality = rqst.locality
+        c_cert.email = rqst.email
+        c_cert.organization = rqst.organization
+        c_cert.OU = rqst.OU
+        c_cert.state = rqst.state
 
-        # Make CA's self-signed certificate with CA request
-        m2_cert = X509.X509()
-        m2_cert.set_version(2)
-        m2_cert.set_serial_number(self.ca_serial)
-        c_cert.serial = self.ca_serial
-        self.ca_serial = self.ca_serial+1
-        # Set certificate expiration
-        asn1 = ASN1.ASN1_UTCTIME()
-        asn1.set_datetime(not_before)
-        m2_cert.set_not_before(asn1)
-        asn1 = ASN1.ASN1_UTCTIME()
-        asn1.set_datetime(not_after)
-        m2_cert.set_not_after(asn1)
-        # Use CA pubkey
-        m2_cert.set_pubkey(m2rqst.get_pubkey())
-        # Issuer
-        ca_name = X509.X509_Name()
-        ca_name.C = self.country
-        ca_name.CN = self.CN
-        m2_cert.set_issuer_name(ca_name)
-        # Subject
-        m2_cert.set_subject_name(c_name)
+        x509 = X509.load_cert_string(pem, X509.FORMAT_PEM)
+        c_cert.serial = x509.get_serial_number()
+        c_cert.begin = x509.get_not_before().get_datetime()
+        c_cert.end = x509.get_not_after().get_datetime()
         if ca:
-            # Add CA Constraint
-            ext = X509.new_extension('basicConstraints', 'CA:TRUE')
-            m2_cert.add_ext(ext)
-            c_cert.is_ca = True
             c_cert.ca_serial = 1
-        # Sign Cert with CA's privkey
-        m2_cert.sign(ca_pkey, md='sha1')
-        c_cert.pem = m2_cert.as_pem()
+            c_cert.is_ca = True
         # Add date
         c_cert.created = datetime.now()
 
