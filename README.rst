@@ -33,8 +33,6 @@ There is an simple PKI example::
     from signature.models import Key, Certificate, CertificateRequest
     from datetime import datetime
 
-    before = datetime(2010, 01, 01)
-    after = datetime(2015, 01, 01)
     ca_pwd = "R00tz"
     c_pwd = "1234"
 
@@ -47,8 +45,7 @@ There is an simple PKI example::
     ca_cert.CN = "Admin"
     ca_cert.C = "FR"
     ca_cert.key = ca_key
-    ca_cert.begin = before
-    ca_cert.end = after
+    ca_cert.days = days
     ca_cert.is_ca = True
     ca_cert.generate_x509_root(ca_pwd)
 
@@ -60,7 +57,7 @@ There is an simple PKI example::
     rqst.sign_request(c_pwd)
 
     # Sign client's request and return certificate
-    c_cert = ca_cert.sign_request(rqst, before, after, ca_pwd)
+    c_cert = ca_cert.sign_request(rqst, days, ca_pwd)
 
 For more examples, see SignaturePKITestCase into tests/test_project/apps/testapp/tests.py
 
