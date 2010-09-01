@@ -49,8 +49,8 @@ class SignaturePKITestCase(TestCase):
         """Try to load key
         """
         k = Key.new_from_pem(C_KEY, "1234")
-        self.assertTrue(k.length == 4096)
-        self.assertTrue(k.public == C_PUB_KEY)
+        self.assertEqual(k.length, 4096)
+        self.assertEqual(k.public, C_PUB_KEY)
 
     def testSelfCertificateGeneration(self):
         """With a Key, try to generate a self-signed certificate
