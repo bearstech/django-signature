@@ -7,6 +7,7 @@ from django.utils.encoding import smart_str
 from M2Crypto import BIO, m2, ASN1, RSA, EVP, X509, SMIME
 from M2Crypto.util import no_passphrase_callback
 from signature import utils
+from tempfile import NamedTemporaryFile, TemporaryFile
 
 from datetime import datetime
 
@@ -59,9 +60,34 @@ class BaseCert(models.Model):
     organization = models.CharField(max_length=64, null=True)
     created = models.DateTimeField()
     CN = models.CharField(max_length=50)
+    OU = models.CharField(max_length=50, null=True)
+    email = models.EmailField(blank=True, null=True)
+    user = models.ForeignKey(User, null=True)
+
 
     class Meta:
                 abstract = True
+
+    def get_subject(self):
+        """Return subject string for CSR and self-signed certs
+        """
+
+        subj = '/CN=%s' % self.CN
+
+        if self.country:
+            subj += '/C=%s' % self.country
+        if self.state:
+            subj += '/ST=%s' % self.state
+        if self.locality:
+            subj += '/localityName=%s' % self.locality
+        if self.organization:
+            subj += '/O=%s' % self.organization
+        if self.OU:
+            subj += '/organizationalUnitName=%s' % self.OU
+        if self.email:
+            subj += '/emailAddress=%s' % self.email
+        return subj
+
 
 def quiet_callback(*args):
         return
@@ -133,7 +159,6 @@ class Key(models.Model):
 class CertificateRequest(BaseCert):
     """A CSR
     """
-    user = models.ForeignKey(User, null=True)
     key = models.ForeignKey(Key, null=True)
     pem = models.TextField(editable=False)
 
@@ -203,11 +228,11 @@ class Signature(models.Model):
 class Certificate(BaseCert):
     """An x509 certificate
     """
-    user = models.ForeignKey(User, null=True)
     key = models.ForeignKey(Key, null=True)
     pem = models.TextField(editable=False)
     begin = models.DateTimeField()
     end = models.DateTimeField()
+    days = models.IntegerField(null=True)
     serial = models.PositiveIntegerField(editable=False)
     issuer = models.ForeignKey('self', related_name='issuer_set', null=True)
     is_ca = models.BooleanField(default=False)
@@ -223,44 +248,20 @@ class Certificate(BaseCert):
     def generate_x509_root(self, passphrase=None):
         """Generate x509 certificate with instance informations
         """
-        # TODO : class for C / CN and all attributes
+        from signature.openssl import Openssl
         # Generate CA Request
-        rqst = X509.Request()
-        ca_name = rqst.get_subject()
-        ca_name.C = self.country
-        ca_name.CN = self.CN
-        ca_pkey = self.key.m2_pkey(passphrase)
+        ca_pkey = self.key.private
 
-        rqst.set_pubkey(ca_pkey)
-        # Sign request
-        rqst.sign(pkey=ca_pkey, md='sha1')
-        #print rqst.as_text()
+        subject = self.get_subject()
 
-        # Make CA's self-signed certificate with CA request
-        ca_cert = X509.X509()
-        #ca_cert.set_version(2)
-        # Set certificate expiration
-        asn1 = ASN1.ASN1_UTCTIME()
-        asn1.set_datetime(self.begin)
-        ca_cert.set_not_before(asn1)
-        asn1 = ASN1.ASN1_UTCTIME()
-        asn1.set_datetime(self.end)
-        ca_cert.set_not_after(asn1)
-        # Use CA pubkey
-        ca_cert.set_pubkey(ca_pkey)
-        # Self signed : subject = issuer
-        ca_cert.set_subject_name(ca_name)
-        ca_cert.set_issuer_name(ca_name)
-        self.serial = 0
-        if self.is_ca:
-            # Add CA Constraint
-            ext = X509.new_extension('basicConstraints', 'CA:TRUE')
-            ca_cert.add_ext(ext)
-            self.is_ca = True
-            self.ca_serial = 1
-        # Sign CA with CA's privkey
-        ca_cert.sign(ca_pkey, md='sha1')
-        self.pem = ca_cert.as_pem()
+        pem = Openssl().generate_self_signed_cert(self.days, subject, ca_pkey, passphrase)
+        self.pem = pem
+        x509 = X509.load_cert_string(pem, X509.FORMAT_PEM)
+        self.serial = x509.get_serial_number()
+        self.begin = x509.get_not_before().get_datetime()
+        self.end = x509.get_not_after().get_datetime()
+        self.ca_serial = 1
+        self.is_ca = True
         # Add date
         self.created = datetime.now()
 
