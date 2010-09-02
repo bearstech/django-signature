@@ -303,6 +303,28 @@ class SignaturePKITestCase(TestCase):
         self.assertTrue(u_cert.issuer == c_cert)
         self.assertTrue(u_cert.issuer.issuer == ca_cert)
 
+    def testCertificateChainLoadingIssued(self):
+        """Load many x509 and check _issued_ relations
+        """
+        user = User(email="f@f.fr", username='toto')
+        user.save()
+        # Check relations for certs imports
+        ca_cert = Certificate.new_from_pem(CA_CERT)
+        ca_cert.save()
+
+        u_cert = Certificate.new_from_pem(U_CERT)
+        u_cert.save()
+
+        # Check relations for keys imports
+        c_cert = Certificate.new_from_pem(C_CERT)
+        c_cert.save()
+        # Refresh object
+        c_cert = Certificate.objects.get(pk=c_cert.id)
+        u_cert = Certificate.objects.get(pk=u_cert.id)
+
+        self.assertTrue(c_cert.issuer == ca_cert)
+        self.assertTrue(u_cert.issuer == c_cert)
+
 class SignatureTestCase(TestCase):
     """Tests with django Signature + M2Cryto
     Sign some models

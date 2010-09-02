@@ -364,12 +364,6 @@ class Certificate(BaseCert):
         else:
             cert.issuer = ca_cert
 
-        # Search issued # XXX
-        for c_cert in Certificate.objects.filter(auth_kid=cert.subject_kid, issuer__isnull=True):
-            pass
-            #c_cert.issuer = cert
-            #c_cert.save()
-
         # Find Relations
         cert_pubkey = cert.get_pubkey()
         if key:
@@ -395,6 +389,12 @@ class Certificate(BaseCert):
         if x509.check_ca():
             cert.is_ca = True
         cert.save()
+
+        # Search issued # XXX
+        for c_cert in Certificate.objects.filter(auth_kid=cert.subject_kid, issuer__isnull=True):
+            c_cert.issuer = cert
+            c_cert.save()
+
         return cert
 
     def sign_text(self, text, passphrase):
