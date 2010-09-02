@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from django.test import TestCase
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
@@ -32,6 +33,19 @@ class SignaturePKITestCase(TestCase):
         self.assertTrue("ENCRYPTED" in k.private)
         self.assertTrue("-----BEGIN PUBLIC KEY-----" in k.public)
         pkey = k.m2_pkey(user_pwd)
+        self.assertTrue(isinstance(pkey, EVP.PKey))
+
+    def testKeyGenerationPrivateUtf8(self):
+        """Test Key pair generation with utf8 encoded password
+        """
+        password = "ééééèèèèçççùùù"
+        k = Key.generate(password)
+        k.save()
+        k = Key.objects.get(id=k.id)
+        self.assertTrue("-----BEGIN RSA PRIVATE KEY-----" in k.private)
+        self.assertTrue("ENCRYPTED" in k.private)
+        self.assertTrue("-----BEGIN PUBLIC KEY-----" in k.public)
+        pkey = k.m2_pkey(password)
         self.assertTrue(isinstance(pkey, EVP.PKey))
 
     def testKeyGeneration(self):
@@ -336,14 +350,19 @@ class SignatureTestCase(TestCase):
         self.c_pwd = "1234"
         self.user_admin = User.objects.create(username="Admin", email="admin@server.bofh")
         self.user_client = User.objects.create(username="Client", email="client@internet.isp")
-        self.ca_key = Key.new_from_pem(CA_KEY, "R00tz", self.user_admin)
-        self.ca_key.save()
-        self.c_key = Key.new_from_pem(C_KEY, "1234", self.user_client)
-        self.c_key.save()
-        self.ca_cert = Certificate.new_from_pem(CA_CERT, user=self.user_admin, key=self.ca_key)
-        self.ca_cert.save()
-        self.c_cert = Certificate.new_from_pem(C_CERT, user=self.user_client, key=self.c_key)
-        self.c_cert.save()
+        ca_key = Key.new_from_pem(CA_KEY, "R00tz", self.user_admin)
+        ca_key.save()
+        c_key = Key.new_from_pem(C_KEY, "1234", self.user_client)
+        c_key.save()
+        ca_cert = Certificate.new_from_pem(CA_CERT, user=self.user_admin, key=ca_key)
+        ca_cert.save()
+        c_cert = Certificate.new_from_pem(C_CERT, user=self.user_client, key=c_key)
+        c_cert.save()
+        self.ca_key = Key.objects.get(id=ca_key.id)
+        self.c_key = Key.objects.get(id=c_key.id)
+        self.ca_cert = Certificate.objects.get(id=ca_cert.id)
+        self.c_cert = Certificate.objects.get(id=c_cert.id)
+
 
     def testBasicTextPKCS7(self):
         """Try to sign a basic text

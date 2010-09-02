@@ -136,7 +136,7 @@ class Key(models.Model):
         """Return M2Crypto RSA's instance of key
         """
         ciph, cb = quiet_passphrase(passphrase)
-        rsakeyp = RSA.load_key_string(self.private, cb)
+        rsakeyp = RSA.load_key_string(smart_str(self.private), cb)
         return rsakeyp
 
     def m2_pkey(self, passphrase=None):
