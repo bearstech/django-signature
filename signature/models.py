@@ -3,7 +3,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
 from django.contrib.auth.models import User
 from django.utils.translation import ugettext_lazy as _
-from django.utils.encoding import smart_str
+from django.utils.encoding import smart_str, smart_unicode
 from M2Crypto import BIO, m2, ASN1, RSA, EVP, X509, SMIME
 from M2Crypto.util import no_passphrase_callback
 from signature import utils
@@ -200,12 +200,19 @@ class CertificateRequest(BaseCert):
         # Generate CA Request
         rqst = X509.Request()
         issuer_name = rqst.get_subject()
-        issuer_name.C = self.country
         issuer_name.CN = self.CN
-        #issuer_name.L = self.locality # XXX
-        #issuer_name.CN = self.organization
-        #issuer_name.CN = self.OU
-        #issuer_name.CN = self.state
+        if self.country:
+            issuer_name.C = self.country
+        if self.locality:
+            issuer_name.L = self.locality
+        if self.organization:
+            issuer_name.O = self.organization
+        if self.OU:
+            issuer_name.OU = self.OU
+        if self.state:
+            issuer_name.SP = self.state
+        if self.email:
+            issuer_name.Email = self.email
         issuer_pkey = self.key.m2_pkey(passphrase)
         rqst.set_pubkey(issuer_pkey)
         rqst.sign(pkey=issuer_pkey, md='sha1')
@@ -347,8 +354,19 @@ class Certificate(BaseCert):
         x509 = X509.load_cert_string(pem, X509.FORMAT_PEM)
         cert.pem = x509.as_pem()
         issuer = x509.get_issuer()
-        cert.country = issuer.C
-        cert.CN = issuer.CN
+        if issuer.C:
+            cert.country = smart_unicode(issuer.C)
+        cert.CN = smart_unicode(issuer.CN)
+        if issuer.L:
+            cert.locality = smart_unicode(issuer.L)
+        if issuer.Email:
+            cert.email = smart_unicode(issuer.Email)
+        if issuer.O:
+            cert.organization = smart_unicode(issuer.O)
+        if issuer.OU:
+            cert.OU = smart_unicode(issuer.OU)
+        if issuer.SP:
+            cert.state = smart_unicode(issuer.SP)
         cert.serial = x509.get_serial_number()
         cert.begin = x509.get_not_before().get_datetime()
         cert.end = x509.get_not_after().get_datetime()

@@ -21,8 +21,6 @@ Todo :
 ------
 
  - Sign complex models
- - use RSA _OR_ EVP for Key's Models
- - More x509 attributes
  - ... and much more
 
 Examples :
@@ -93,4 +91,4 @@ Requirements :
 
  - M2Crypto : http://chandlerproject.org/Projects/MeTooCrypto
  - Django >= 1.1
-  
+ - Openssl

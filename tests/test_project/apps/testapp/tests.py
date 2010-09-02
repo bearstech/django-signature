@@ -5,6 +5,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.conf import settings
 from django.core.files.base import File
 from django.http import HttpRequest, QueryDict
+from django.utils.encoding import smart_str
 
 from subprocess import Popen, PIPE
 from datetime import date
@@ -13,7 +14,7 @@ from datetime import datetime
 from tempfile import NamedTemporaryFile, TemporaryFile
 
 from signature.models import Key, Certificate, CertificateRequest, Signature
-from certificates import C_KEY, CA_KEY ,C_PUB_KEY, CA_CERT, C_REQUEST, C_CERT, U_CERT, U_KEY, U_REQUEST
+from certificates import C_KEY, CA_KEY ,C_PUB_KEY, CA_CERT, C_REQUEST, C_CERT, U_CERT, U_KEY, U_REQUEST, UTF8_CERT
 
 from models import Author, Whatamess, Book
 
@@ -125,6 +126,19 @@ class SignaturePKITestCase(TestCase):
         self.assertTrue(cert.auth_kid in m2x509.as_text())
         self.assertTrue(cert.subject_kid in m2x509.as_text())
 
+    def testCertificateLoadingUTF8(self):
+        """Load x509 certificate UTF8
+        """
+        #before = datetime(2010, 01, 01, 6, tzinfo=ASN1.UTC)
+        #after = datetime(2015, 01, 01, 6, tzinfo=ASN1.UTC)
+        cert = Certificate.new_from_pem(UTF8_CERT)
+        cert.save()
+        self.assertEqual(cert.CN, u"Admin ©")
+        self.assertEqual(cert.country, u"FR")
+        cert = Certificate.objects.get(id=cert.id)
+        self.assertEqual(cert.CN, u"Admin ©")
+        self.assertEqual(cert.country, u"FR")
+
     def testRequestGeneration(self):
         """With a Key, try to generate a request
         """
@@ -140,7 +154,7 @@ class SignaturePKITestCase(TestCase):
         rqst_pem = rqst.pem
 
         m2rqst = rqst.m2_request()
-        self.assertTrue("Subject: C=FR, CN=World Company" in m2rqst.as_text())
+        self.assertTrue("Subject: CN=World Company, C=FR" in m2rqst.as_text())
         return rqst_pem
 
     def testRequestLoading(self):
@@ -157,6 +171,7 @@ class SignaturePKITestCase(TestCase):
 
     def testSignaturePKI(self):
         """
+        Symbol © is for testing utf8
         """
         before = datetime(2010, 01, 01, 6, tzinfo=ASN1.UTC)
         after = datetime(2015, 01, 01, 6, tzinfo=ASN1.UTC)
@@ -172,7 +187,7 @@ class SignaturePKITestCase(TestCase):
 
         # CA Cert
         ca_cert = Certificate()
-        ca_cert.CN = "Admin"
+        ca_cert.CN = "Admin ©"
         ca_cert.country = "FR"
         ca_cert.key = ca_key
         ca_cert.begin = before
@@ -184,7 +199,7 @@ class SignaturePKITestCase(TestCase):
 
         # Client's request
         rqst = CertificateRequest()
-        rqst.CN = "World Company"
+        rqst.CN = "World Company ©"
         rqst.country = "FR"
         rqst.key = c_key
         rqst.sign_request(c_pwd)
@@ -198,13 +213,13 @@ class SignaturePKITestCase(TestCase):
         self.assertEqual(ca_cert.ca_serial, 2)
         self.assertTrue("Signature ok" not in c_cert.pem)
 
-        # Just test Certificate.m2_x509() method
-        x509 = X509.load_cert_string(c_cert.pem, X509.FORMAT_PEM)
+        c_cert = Certificate.objects.get(id=c_cert.id)
+        x509 = X509.load_cert_string(smart_str(c_cert.pem), X509.FORMAT_PEM)
         m2x509 = c_cert.m2_x509()
         self.assertTrue(x509.as_text() == m2x509.as_text())
 
-        self.assertTrue("Issuer: CN=Admin, C=FR" in m2x509.as_text())
-        self.assertTrue("Subject: C=FR, CN=World Company" in m2x509.as_text())
+        self.assertTrue("Issuer: CN=Admin \\xC2\\xA9, C=FR" in m2x509.as_text())
+        self.assertTrue("Subject: CN=World Company \\xC2\\xA9, C=FR" in m2x509.as_text())
         self.assertTrue("X509v3 Authority Key Identifier" in m2x509.as_text())
         self.assertTrue("X509v3 Subject Key Identifier" in m2x509.as_text())
 
@@ -250,7 +265,7 @@ class SignaturePKITestCase(TestCase):
 
         self.assertTrue("CA:TRUE" in m2x509.as_text())
         self.assertTrue("Issuer: CN=Admin, C=FR" in m2x509.as_text())
-        self.assertTrue("Subject: C=FR, CN=World Company" in m2x509.as_text())
+        self.assertTrue("Subject: CN=World Company, C=FR" in m2x509.as_text())
         self.assertTrue("X509v3 Authority Key Identifier" in m2x509.as_text())
         self.assertTrue("X509v3 Subject Key Identifier" in m2x509.as_text())
         self.assertTrue(c_cert.auth_kid)
@@ -278,8 +293,8 @@ class SignaturePKITestCase(TestCase):
         m2x509 = c2_cert.m2_x509()
         self.assertTrue(x509.as_text() == m2x509.as_text())
 
-        self.assertTrue("Issuer: C=FR, CN=World Company" in m2x509.as_text())
-        self.assertTrue("Subject: C=FR, CN=Country Company" in m2x509.as_text())
+        self.assertTrue("Issuer: CN=World Company, C=FR" in m2x509.as_text())
+        self.assertTrue("Subject: CN=Country Company, C=FR" in m2x509.as_text())
         self.assertTrue("X509v3 Authority Key Identifier" in m2x509.as_text())
         self.assertTrue("X509v3 Subject Key Identifier" in m2x509.as_text())
         self.assertTrue(c2_cert.auth_kid)

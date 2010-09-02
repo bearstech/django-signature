@@ -21,3 +21,5 @@ C_CERT=open(join(CERT_ROOT, 'client.crt'), 'r').read()
 U_REQUEST=open(join(CERT_ROOT, 'user_req.pem'), 'r').read()
 
 U_CERT=open(join(CERT_ROOT, 'user.crt'), 'r').read()
+
+UTF8_CERT=open(join(CERT_ROOT, 'utf8.pem'), 'r').read()
