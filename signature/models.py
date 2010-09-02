@@ -365,27 +365,31 @@ class Certificate(BaseCert):
             cert.issuer = ca_cert
 
         # Search issued # XXX
-        for cert in Certificate.objects.filter(auth_kid=cert.subject_kid, issuer__isnull=True):
-            cert.issuer = cert
-            #cert.save()
+        for c_cert in Certificate.objects.filter(auth_kid=cert.subject_kid, issuer__isnull=True):
+            pass
+            #c_cert.issuer = cert
+            #c_cert.save()
 
         # Find Relations
         cert_pubkey = cert.get_pubkey()
-        if user:
-            try:
-                key = Key.objects.get(user=user, public=cert_pubkey)
-            except Key.DoesNotExist:
-                pass
-            else:
-                cert.key = key
+        if key:
+            cert.key = key
         else:
-            try:
-                key = Key.objects.get(public=cert_pubkey)
-            except Key.DoesNotExist:
-                pass
+            if user:
+                try:
+                    key = Key.objects.get(user=user, public=cert_pubkey)
+                except Key.DoesNotExist:
+                    pass
+                else:
+                    cert.key = key
             else:
-                cert.key = key
-                cert.user = key.user
+                try:
+                    key = Key.objects.get(public=cert_pubkey)
+                except Key.DoesNotExist:
+                    pass
+                else:
+                    cert.key = key
+                    cert.user = key.user
         # Add date
         cert.created = datetime.now()
         if x509.check_ca():

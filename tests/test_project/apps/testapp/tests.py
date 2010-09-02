@@ -321,7 +321,6 @@ class SignatureTestCase(TestCase):
         self.ca_cert = Certificate.new_from_pem(CA_CERT, user=self.user_admin, key=self.ca_key)
         self.ca_cert.save()
         self.c_cert = Certificate.new_from_pem(C_CERT, user=self.user_client, key=self.c_key)
-        self.c_cert.issuer = self.ca_cert
         self.c_cert.save()
 
     def testBasicTextPKCS7(self):
