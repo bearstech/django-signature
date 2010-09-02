@@ -62,7 +62,6 @@ class BaseCert(models.Model):
     OU = models.CharField(max_length=50, null=True)
     email = models.EmailField(blank=True, null=True)
     user = models.ForeignKey(User, null=True)
-
     class Meta:
         abstract = True
 
@@ -239,6 +238,9 @@ class Certificate(BaseCert):
     issuer = models.ForeignKey('self', related_name='issuer_set', null=True)
     is_ca = models.BooleanField(default=False)
     ca_serial = models.PositiveIntegerField(null=True, editable=False)
+    subject_kid = models.CharField(max_length=60, editable=False)
+    auth_kid = models.CharField(max_length=60, editable=False)
+    crl = models.TextField(editable=False)
 
     def m2_x509(self):
         """Return M2Crypto's x509 instance of certificate
@@ -262,6 +264,9 @@ class Certificate(BaseCert):
         self.serial = x509.get_serial_number()
         self.begin = x509.get_not_before().get_datetime()
         self.end = x509.get_not_after().get_datetime()
+        self.subject_kid = x509.get_ext("subjectKeyIdentifier").get_value().strip()
+        auth_kid = x509.get_ext("authorityKeyIdentifier").get_value().split("\n")
+        self.auth_kid = [keyid.lstrip('keyid:') for keyid in auth_kid if keyid.startswith("keyid:")][0].strip()
         self.ca_serial = 1
         self.is_ca = True
         # Add date
@@ -293,6 +298,9 @@ class Certificate(BaseCert):
         c_cert.serial = x509.get_serial_number()
         c_cert.begin = x509.get_not_before().get_datetime()
         c_cert.end = x509.get_not_after().get_datetime()
+        c_cert.subject_kid = x509.get_ext("subjectKeyIdentifier").get_value().strip()
+        auth_kid = x509.get_ext("authorityKeyIdentifier").get_value().split("\n")
+        c_cert.auth_kid = [keyid.lstrip('keyid:') for keyid in auth_kid if keyid.startswith("keyid:")][0].strip()
         if ca:
             c_cert.ca_serial = 1
             c_cert.is_ca = True

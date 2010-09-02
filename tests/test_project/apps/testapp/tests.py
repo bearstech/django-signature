@@ -220,6 +220,14 @@ class SignaturePKITestCase(TestCase):
         self.assertTrue("Subject: C=FR, CN=World Company" in m2x509.as_text())
         self.assertTrue("X509v3 Authority Key Identifier" in m2x509.as_text())
         self.assertTrue("X509v3 Subject Key Identifier" in m2x509.as_text())
+        self.assertTrue(c_cert.auth_kid)
+        self.assertTrue(c_cert.subject_kid)
+        self.assertTrue(" " not in c_cert.auth_kid)
+        self.assertTrue(" " not in c_cert.subject_kid)
+        self.assertTrue(c_cert.auth_kid in m2x509.as_text())
+        self.assertTrue(c_cert.subject_kid in m2x509.as_text())
+        # get authkey
+
 
         # Client's request
         rqst = CertificateRequest()
@@ -241,6 +249,12 @@ class SignaturePKITestCase(TestCase):
         self.assertTrue("Subject: C=FR, CN=Country Company" in m2x509.as_text())
         self.assertTrue("X509v3 Authority Key Identifier" in m2x509.as_text())
         self.assertTrue("X509v3 Subject Key Identifier" in m2x509.as_text())
+        self.assertTrue(c2_cert.auth_kid)
+        self.assertTrue(c2_cert.subject_kid)
+        self.assertTrue(c2_cert.auth_kid in m2x509.as_text())
+        self.assertTrue(c2_cert.subject_kid in m2x509.as_text())
+        self.assertTrue(" " not in c2_cert.auth_kid)
+        self.assertTrue(" " not in c2_cert.subject_kid)
 
 class SignatureTestCase(TestCase):
     """Tests with django Signature + M2Cryto
