@@ -257,9 +257,11 @@ class Openssl():
         serialfile = NamedTemporaryFile()
         serialfile.write(str(serial).rjust(2,"0"))
         serialfile.seek(0)
+        certfile = NamedTemporaryFile()
 
-        command = ['x509', '-req', '-CAserial', serialfile.name,'-extfile', self.confname , '-sha1', '-days', str(days), '-in', csrfile.name, '-CA', cafile.name, '-CAkey', cakeyfile.name, '-passin', 'stdin', '-extensions', extension]
-        pem = self.exec_openssl(command, stdin=passphrase)
+        command = ['x509', '-req', '-CAserial', serialfile.name,'-extfile', self.confname , '-sha1', '-days', str(days), '-in', csrfile.name, '-CA', cafile.name, '-CAkey', cakeyfile.name, '-passin', 'stdin', '-extensions', extension, '-out', certfile.name]
+        self.exec_openssl(command, stdin=passphrase)
+        pem = certfile.read()
         return pem
 
     def revoke_certificate(self, ppf):

@@ -88,19 +88,28 @@ class SignaturePKITestCase(TestCase):
     def testCertificateLoading(self):
         """Load x509 certificate
         """
-        before = datetime(2010, 01, 01, 6, tzinfo=ASN1.UTC)
-        after = datetime(2015, 01, 01, 6, tzinfo=ASN1.UTC)
+        #before = datetime(2010, 01, 01, 6, tzinfo=ASN1.UTC)
+        #after = datetime(2015, 01, 01, 6, tzinfo=ASN1.UTC)
         x509_text = X509.load_cert_string(CA_CERT, X509.FORMAT_PEM).as_text()
 
         cert = Certificate.new_from_pem(CA_CERT)
         cert.save()
         self.assertTrue(cert.CN == "Admin")
         self.assertTrue(cert.country == "FR")
-        self.assertTrue(cert.begin == before)
-        self.assertTrue(cert.end == after)
+        #self.assertTrue(cert.begin == before)
+        #self.assertTrue(cert.end == after)
         self.assertTrue(cert.is_ca)
-        cert_text = X509.load_cert_string(cert.pem, X509.FORMAT_PEM).as_text()
-        self.assertTrue(cert_text == x509_text)
+        self.assertTrue(cert.auth_kid)
+        self.assertTrue(cert.subject_kid)
+        self.assertTrue(" " not in cert.auth_kid)
+        self.assertTrue(" " not in cert.subject_kid)
+        # Just test Certificate.m2_x509() method
+        x509 = X509.load_cert_string(cert.pem, X509.FORMAT_PEM)
+        m2x509 = cert.m2_x509()
+        self.assertTrue(x509.as_text() == m2x509.as_text())
+
+        self.assertTrue(cert.auth_kid in m2x509.as_text())
+        self.assertTrue(cert.subject_kid in m2x509.as_text())
 
     def testRequestGeneration(self):
         """With a Key, try to generate a request
@@ -142,7 +151,10 @@ class SignaturePKITestCase(TestCase):
 
         # CA and Client keys
         ca_key = Key.generate(ca_pwd)
+        #print "\nCA PRIVATE\n", ca_key.private, "\n"
         c_key = Key.generate(c_pwd)
+        #print "\nC PRIVATE\n", c_key.private, "\n"
+        #print "\nC PUB\n", c_key.public, "\n"
 
         # CA Cert
         ca_cert = Certificate()
@@ -153,6 +165,8 @@ class SignaturePKITestCase(TestCase):
         ca_cert.end = after
         ca_cert.is_ca = True
         ca_cert.generate_x509_root(ca_pwd)
+        ca_cert.save()
+        #print "\nCA cert\n", ca_cert.pem, "\n"
 
         # Client's request
         rqst = CertificateRequest()
@@ -160,10 +174,15 @@ class SignaturePKITestCase(TestCase):
         rqst.country = "FR"
         rqst.key = c_key
         rqst.sign_request(c_pwd)
+        rqst.save()
+        #print "\nRQST\n", rqst.pem, "\n"
 
         c_cert = ca_cert.sign_request(rqst, 300, ca_pwd)
+        c_cert.save()
+        #print "\nC_CERT\n", c_cert.pem, "\n"
         self.assertEqual(c_cert.serial, 2L)
         self.assertEqual(ca_cert.ca_serial, 2)
+        self.assertTrue("Signature ok" not in c_cert.pem)
 
         # Just test Certificate.m2_x509() method
         x509 = X509.load_cert_string(c_cert.pem, X509.FORMAT_PEM)

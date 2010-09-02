@@ -264,6 +264,7 @@ class Certificate(BaseCert):
         self.serial = x509.get_serial_number()
         self.begin = x509.get_not_before().get_datetime()
         self.end = x509.get_not_after().get_datetime()
+        # v3 extensions
         self.subject_kid = x509.get_ext("subjectKeyIdentifier").get_value().strip()
         auth_kid = x509.get_ext("authorityKeyIdentifier").get_value().split("\n")
         self.auth_kid = [keyid.lstrip('keyid:') for keyid in auth_kid if keyid.startswith("keyid:")][0].strip()
@@ -298,6 +299,7 @@ class Certificate(BaseCert):
         c_cert.serial = x509.get_serial_number()
         c_cert.begin = x509.get_not_before().get_datetime()
         c_cert.end = x509.get_not_after().get_datetime()
+        # v3 extensions
         c_cert.subject_kid = x509.get_ext("subjectKeyIdentifier").get_value().strip()
         auth_kid = x509.get_ext("authorityKeyIdentifier").get_value().split("\n")
         c_cert.auth_kid = [keyid.lstrip('keyid:') for keyid in auth_kid if keyid.startswith("keyid:")][0].strip()
@@ -323,6 +325,10 @@ class Certificate(BaseCert):
         cert.serial = x509.get_serial_number()
         cert.begin = x509.get_not_before().get_datetime()
         cert.end = x509.get_not_after().get_datetime()
+        # v3 extensions
+        cert.subject_kid = x509.get_ext("subjectKeyIdentifier").get_value().strip()
+        auth_kid = x509.get_ext("authorityKeyIdentifier").get_value().split("\n")
+        cert.auth_kid = [keyid.lstrip('keyid:') for keyid in auth_kid if keyid.startswith("keyid:")][0].strip()
         # Add date
         cert.created = datetime.now()
         if x509.check_ca():
