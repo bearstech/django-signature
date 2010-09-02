@@ -238,7 +238,7 @@ class Certificate(BaseCert):
     issuer = models.ForeignKey('self', related_name='issuer_set', null=True)
     is_ca = models.BooleanField(default=False)
     ca_serial = models.PositiveIntegerField(null=True, editable=False)
-    subject_kid = models.CharField(max_length=60, editable=False)
+    subject_kid = models.CharField(max_length=60, editable=False, unique=True)
     auth_kid = models.CharField(max_length=60, editable=False)
     crl = models.TextField(editable=False)
 
@@ -329,6 +329,13 @@ class Certificate(BaseCert):
         cert.subject_kid = x509.get_ext("subjectKeyIdentifier").get_value().strip()
         auth_kid = x509.get_ext("authorityKeyIdentifier").get_value().split("\n")
         cert.auth_kid = [keyid.lstrip('keyid:') for keyid in auth_kid if keyid.startswith("keyid:")][0].strip()
+        # Search issuer
+        try:
+            ca_cert = Certificate.objects.get(subject_kid=cert.auth_kid)
+        except Certificate.DoesNotExist:
+            pass
+        else:
+            cert.issuer = ca_cert
         # Add date
         cert.created = datetime.now()
         if x509.check_ca():

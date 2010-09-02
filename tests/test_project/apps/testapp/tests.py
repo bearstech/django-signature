@@ -12,7 +12,7 @@ from datetime import datetime
 from tempfile import NamedTemporaryFile, TemporaryFile
 
 from signature.models import Key, Certificate, CertificateRequest, Signature
-from certificates import C_KEY, CA_KEY ,C_PUB_KEY, CA_CERT, C_REQUEST, C_CERT
+from certificates import C_KEY, CA_KEY ,C_PUB_KEY, CA_CERT, C_REQUEST, C_CERT, U_CERT
 
 from models import Author, Whatamess, Book
 
@@ -274,6 +274,20 @@ class SignaturePKITestCase(TestCase):
         self.assertTrue(c2_cert.subject_kid in m2x509.as_text())
         self.assertTrue(" " not in c2_cert.auth_kid)
         self.assertTrue(" " not in c2_cert.subject_kid)
+
+    def testCertificateChainLoading(self):
+        """Load x509 certificate
+        """
+        x509_text = X509.load_cert_string(CA_CERT, X509.FORMAT_PEM).as_text()
+
+        ca_cert = Certificate.new_from_pem(CA_CERT)
+        ca_cert.save()
+        c_cert = Certificate.new_from_pem(C_CERT)
+        c_cert.save()
+        u_cert = Certificate.new_from_pem(U_CERT)
+        u_cert.save()
+        self.assertTrue(u_cert.issuer == c_cert)
+        self.assertTrue(u_cert.issuer.issuer == ca_cert)
 
 class SignatureTestCase(TestCase):
     """Tests with django Signature + M2Cryto
