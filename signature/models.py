@@ -53,6 +53,8 @@ COUNTRY = (
 class BaseCert(models.Model):
     """Base Certificate for Models
     """
+    key = models.ForeignKey('Key', null=True)
+    pem = models.TextField(editable=False)
     country = models.CharField(max_length=2, choices=COUNTRY)
     state  = models.CharField(max_length=32, null=True)
     locality = models.CharField(max_length=32, null=True)
@@ -84,6 +86,13 @@ class BaseCert(models.Model):
         if self.email:
             subj += '/emailAddress=%s' % self.email
         return subj
+
+    def get_pubkey(self):
+        """Retrieve pubkey of certificate
+        """
+        bio = BIO.MemoryBuffer()
+        self.m2_x509().get_pubkey().get_rsa().save_pub_key_bio(bio)
+        return bio.read()
 
 
 def quiet_callback(*args):
@@ -151,13 +160,32 @@ class Key(models.Model):
         m2key.save_pub_key_bio(bio)
         key.public = bio.read()
         key.length = len(m2key)
+
+        key.save()
+        # Find Relations
+        if user:
+            for cert in Certificate.objects.filter(user=user, key__isnull=True):
+                if cert.get_pubkey() == key.public:
+                    cert.key = key
+                    cert.save()
+            for rqst in CertificateRequest.objects.filter(user=user, key__isnull=True):
+                if rqst.get_pubkey() == key.public:
+                    rqst.key = key
+                    rqst.save()
+        else:
+            for cert in Certificate.objects.filter(user__isnull=True, key__isnull=True):
+                if cert.get_pubkey() == key.public:
+                    cert.key = key
+                    cert.save()
+            for rqst in CertificateRequest.objects.filter(user__isnull=True, key__isnull=True):
+                if rqst.get_pubkey() == key.public:
+                    rqst.key = key
+                    rqst.save()
         return key
 
 class CertificateRequest(BaseCert):
     """A CSR
     """
-    key = models.ForeignKey(Key, null=True)
-    pem = models.TextField(editable=False)
 
     def m2_request(self):
         """Return M2Crypto's Request instance
@@ -229,8 +257,6 @@ class Signature(models.Model):
 class Certificate(BaseCert):
     """An x509 certificate
     """
-    key = models.ForeignKey(Key, null=True)
-    pem = models.TextField(editable=False)
     begin = models.DateTimeField(editable=False)
     end = models.DateTimeField(editable=False)
     days = models.IntegerField(null=True)
@@ -329,6 +355,7 @@ class Certificate(BaseCert):
         cert.subject_kid = x509.get_ext("subjectKeyIdentifier").get_value().strip()
         auth_kid = x509.get_ext("authorityKeyIdentifier").get_value().split("\n")
         cert.auth_kid = [keyid.lstrip('keyid:') for keyid in auth_kid if keyid.startswith("keyid:")][0].strip()
+
         # Search issuer
         try:
             ca_cert = Certificate.objects.get(subject_kid=cert.auth_kid)
@@ -336,10 +363,34 @@ class Certificate(BaseCert):
             pass
         else:
             cert.issuer = ca_cert
+
+        # Search issued # XXX
+        for cert in Certificate.objects.filter(auth_kid=cert.subject_kid, issuer__isnull=True):
+            cert.issuer = cert
+            #cert.save()
+
+        # Find Relations
+        cert_pubkey = cert.get_pubkey()
+        if user:
+            try:
+                key = Key.objects.get(user=user, public=cert_pubkey)
+            except Key.DoesNotExist:
+                pass
+            else:
+                cert.key = key
+        else:
+            try:
+                key = Key.objects.get(public=cert_pubkey)
+            except Key.DoesNotExist:
+                pass
+            else:
+                cert.key = key
+                cert.user = key.user
         # Add date
         cert.created = datetime.now()
         if x509.check_ca():
             cert.is_ca = True
+        cert.save()
         return cert
 
     def sign_text(self, text, passphrase):

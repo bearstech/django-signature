@@ -12,7 +12,7 @@ from datetime import datetime
 from tempfile import NamedTemporaryFile, TemporaryFile
 
 from signature.models import Key, Certificate, CertificateRequest, Signature
-from certificates import C_KEY, CA_KEY ,C_PUB_KEY, CA_CERT, C_REQUEST, C_CERT, U_CERT
+from certificates import C_KEY, CA_KEY ,C_PUB_KEY, CA_CERT, C_REQUEST, C_CERT, U_CERT, U_KEY, U_REQUEST
 
 from models import Author, Whatamess, Book
 
@@ -276,16 +276,30 @@ class SignaturePKITestCase(TestCase):
         self.assertTrue(" " not in c2_cert.subject_kid)
 
     def testCertificateChainLoading(self):
-        """Load x509 certificate
+        """Load many x509 and check relations
         """
-        x509_text = X509.load_cert_string(CA_CERT, X509.FORMAT_PEM).as_text()
-
+        user = User(email="f@f.fr", username='toto')
+        user.save()
+        # Check relations for certs imports
+        ca_key = Key.new_from_pem(CA_KEY, "R00tz")
+        ca_key.user = user
+        ca_key.save()
         ca_cert = Certificate.new_from_pem(CA_CERT)
         ca_cert.save()
+        self.assertEqual(ca_cert.key, ca_key)
+
+        # Check relations for keys imports
         c_cert = Certificate.new_from_pem(C_CERT)
         c_cert.save()
+        c_key = Key.new_from_pem(C_KEY, "1234")
+        # Refresh object
+        c_cert = Certificate.objects.get(pk=c_cert.id)
+        self.assertEqual(c_cert.key, c_key)
+
+        # Check issuer relations
         u_cert = Certificate.new_from_pem(U_CERT)
         u_cert.save()
+        u_key = Key.new_from_pem(U_KEY)
         self.assertTrue(u_cert.issuer == c_cert)
         self.assertTrue(u_cert.issuer.issuer == ca_cert)
 
