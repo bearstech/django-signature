@@ -267,6 +267,7 @@ class Certificate(BaseCert):
     subject_kid = models.CharField(max_length=60, editable=False, unique=True)
     auth_kid = models.CharField(max_length=60, editable=False)
     crl = models.TextField(editable=False)
+    revoked = models.BooleanField(editable=False, default=False)
 
     def m2_x509(self):
         """Return M2Crypto's x509 instance of certificate
