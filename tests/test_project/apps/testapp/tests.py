@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from django.test import TestCase
+from django.test import TestCase, TransactionTestCase
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
 from django.conf import settings
@@ -14,6 +14,7 @@ from datetime import datetime
 from tempfile import NamedTemporaryFile, TemporaryFile
 
 from signature.models import Key, Certificate, CertificateRequest, Signature
+from signature.openssl import Openssl
 from certificates import C_KEY, CA_KEY ,C_PUB_KEY, CA_CERT, C_REQUEST, C_CERT, U_CERT, U_KEY, U_REQUEST, UTF8_CERT
 
 from models import Author, Whatamess, Book
@@ -87,6 +88,7 @@ class SignaturePKITestCase(TestCase):
         #self.assertEqual(cert.serial, 0)
         self.assertEqual(cert.ca_serial, 1)
         self.assertTrue(cert.is_ca)
+        self.assertTrue(cert.trust)
 
         # Just test Certificate.m2_x509() method
         x509 = X509.load_cert_string(cert_pem, X509.FORMAT_PEM)
@@ -116,6 +118,7 @@ class SignaturePKITestCase(TestCase):
         self.assertTrue(cert.is_ca)
         self.assertTrue(cert.auth_kid)
         self.assertTrue(cert.subject_kid)
+        self.assertTrue(cert.certhash)
         self.assertTrue(" " not in cert.auth_kid)
         self.assertTrue(" " not in cert.subject_kid)
         # Just test Certificate.m2_x509() method
@@ -212,6 +215,10 @@ class SignaturePKITestCase(TestCase):
         self.assertEqual(c_cert.serial, 2L)
         self.assertEqual(ca_cert.ca_serial, 2)
         self.assertTrue("Signature ok" not in c_cert.pem)
+        self.assertTrue(c_cert.trust)
+        self.assertTrue(ca_cert.trust)
+        self.assertTrue(ca_cert.certhash)
+        self.assertTrue(c_cert.certhash)
 
         c_cert = Certificate.objects.get(id=c_cert.id)
         x509 = X509.load_cert_string(smart_str(c_cert.pem), X509.FORMAT_PEM)
@@ -353,6 +360,44 @@ class SignaturePKITestCase(TestCase):
 
         self.assertTrue(c_cert.issuer == ca_cert)
         self.assertTrue(u_cert.issuer == c_cert)
+
+    def testCertificateCheck(self):
+        """Load many x509 and check certificates
+        """
+        # Check relations for certs imports
+        ca_cert = Certificate.new_from_pem(CA_CERT)
+        ca_cert.save()
+
+        # Check relations for keys imports
+        c_cert = Certificate.new_from_pem(C_CERT)
+        c_cert.save()
+        # Refresh object
+        c_cert = Certificate.objects.get(pk=c_cert.id)
+
+        # Check issuer relations
+        u_cert = Certificate.new_from_pem(U_CERT)
+        u_cert.save()
+
+        self.assertEqual(c_cert.get_cert_chain(), [ca_cert, c_cert])
+        self.assertEqual(u_cert.get_cert_chain(), [ca_cert, c_cert, u_cert])
+        #self.assertRaises(Openssl.VerifyError, ca_cert.check)
+        #self.assertRaises(Openssl.VerifyError, c_cert.check)
+        #self.assertRaises(Openssl.VerifyError, u_cert.check)
+        ca_cert.trust = True
+        ca_cert.save()
+
+        # WTF ? we have to reload all objects after change ca_trust or
+        # x_cert.get_cert_chain()[0].trust will be false
+        # Tested with TransactionTestCase
+        ca_cert = Certificate.objects.get(pk=ca_cert.id)
+        c_cert = Certificate.objects.get(pk=c_cert.id)
+        u_cert = Certificate.objects.get(pk=c_cert.id)
+        self.assertEqual(c_cert.get_cert_chain()[0].trust, True)
+
+        self.assertTrue(ca_cert.check())
+        self.assertTrue(c_cert.check())
+        self.assertTrue(u_cert.check())
+
 
 class SignatureTestCase(TestCase):
     """Tests with django Signature + M2Cryto

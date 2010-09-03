@@ -9,9 +9,11 @@ Features :
 ----------
 
  - Generate (or load) RSA keys and store them in Django models
- - Generate (or load) x509 certificates and store them in Django models
+ - Generate x509 certificates and store them in Django models
+ - Load x509 certificat and find relations with other Certificates and Keys
  - Generate (or load) x509 Requests and store them in Django models
  - Generate self-signed x509 for root CA
+ - Verify certificate chain (without crl)
  - Sign Requests
  - Sign/verify text
  - Sign/verify simple models
@@ -21,6 +23,8 @@ Todo :
 ------
 
  - Sign complex models
+ - Create CRL
+ - Verify CRLs
  - ... and much more
 
 Examples :
@@ -43,7 +47,7 @@ There is an simple PKI example::
     ca_cert.CN = "Admin"
     ca_cert.C = "FR"
     ca_cert.key = ca_key
-    ca_cert.days = days
+    ca_cert.days = 150
     ca_cert.is_ca = True
     ca_cert.generate_x509_root(ca_pwd)
 
@@ -55,7 +59,13 @@ There is an simple PKI example::
     rqst.sign_request(c_pwd)
 
     # Sign client's request and return certificate
-    c_cert = ca_cert.sign_request(rqst, days, ca_pwd)
+    c_cert = ca_cert.sign_request(rqst, 150, ca_pwd)
+
+    # Verify created certificate :
+    c_cert.check()
+
+    # Import a certificate:
+    imported = Certificate.new_from_pem(pem_str)
 
 For more examples, see SignaturePKITestCase into tests/test_project/apps/testapp/tests.py
 

@@ -27,7 +27,7 @@ from signature.settings import PKI_OPENSSL_BIN, PKI_OPENSSL_CONF, PKI_DIR, PKI_O
 from subprocess import Popen, PIPE, STDOUT
 from shutil import rmtree
 from logging import getLogger
-from tempfile import NamedTemporaryFile, TemporaryFile
+from tempfile import NamedTemporaryFile, TemporaryFile, mkdtemp
 
 try:
     # available in python-2.5 and greater
@@ -163,7 +163,12 @@ class Openssl():
         self.conf.seek(0)
         self.confname = self.conf.name
 
-    def exec_openssl(self, command, stdin ,env_vars=None):
+    class VerifyError(Exception):
+        """Openssl verify fails
+        """
+        pass
+
+    def exec_openssl(self, command, stdin=None ,env_vars=None):
         '''Run openssl command. PKI_OPENSSL_BIN doesn't need to be specified'''
 
         c = [PKI_OPENSSL_BIN]
@@ -186,21 +191,6 @@ class Openssl():
         else:
             return stdout_value
 
-    def generate_key(self):
-        '''Generate the secret key'''
-
-        logger.info( 'Generating private key' )
-
-        key_type = po = pf = ''
-
-        if self.i.passphrase:
-            key_type = '-des3'
-            po = '-passout'
-            pf = 'env:%s' % self.env_pw
-
-        command = 'genrsa %s -out %s %s %s %s' % (key_type, self.key, po, pf, self.i.key_length)
-        self.exec_openssl(command.split(), env_vars={ self.env_pw: str(self.i.passphrase) } )
-
     def generate_self_signed_cert(self, days, subj, key, passphrase=None):
         """Generate a self signed root certificate
         """
@@ -216,15 +206,6 @@ class Openssl():
 
         pem = self.exec_openssl(command, stdin=passphrase)
         return pem
-
-    def generate_csr(self):
-        '''Generate the CSR'''
-
-        logger.info( 'Generating the CSR for %s' % self.i.name )
-
-        command = ['req', '-config', PKI_OPENSSL_CONF, '-new', '-batch', '-subj', self.subj, '-key', self.key, '-out', self.csr, \
-                   '-days', str(self.i.valid_days), '-passin', 'env:%s' % self.env_pw]
-        self.exec_openssl(command, env_vars={ self.env_pw: str(self.i.passphrase) })
 
     def generate_der_encoded(self):
         '''Generate a DER encoded version of a given certificate'''
@@ -297,51 +278,38 @@ class Openssl():
         command = 'ca -config %s -name %s -gencrl -out %s -crldays 1 -passin env:%s' % (PKI_OPENSSL_CONF, ca, crl, self.env_pw)
         self.exec_openssl(command.split(), env_vars={ self.env_pw: str(pf) })
 
-    def update_ca_chain_file(self):
-        '''Build/update the CA chain'''
-
-        ## Build list of parents
-        chain = []
-        chain_str = ''
-
-        p = self.i.parent
-
-        if self.i.parent == None:
-            chain.append( self.i.name )
-        else:
-            chain.append( self.i.name )
-            while p != None:
-                chain.append(p.name)
-                p = p.parent
-
-        chain.reverse()
-
-        chain_file = os.path.join( PKI_DIR, self.i.name, '%s-chain.cert.pem' % self.i.name )
+    def verify_ca_chain(self, chain):
+        """Verify the the CA chain
+        """
+        import shutil
+        trusted_chain = [crt for crt in chain if crt.trust]
+        certs = "".join([crt.pem for crt in chain ])
 
         try:
-            w = open(chain_file, 'w')
+            chain_dir = mkdtemp()
+            for c in trusted_chain:
+                filepath = os.path.join(chain_dir, "%s.0" % c.certhash)
+                w = open(filepath, 'w')
+                w.write(c.pem)
+                w.close()
+            command = ['verify', '-CApath', chain_dir, ]
 
-            for c in chain:
-                cert_file = os.path.join( PKI_DIR, c, 'certs', '%s.cert.pem' % c )
-                command = 'x509 -in %s' % cert_file
-                output  = self.exec_openssl(command.split())
+            result = self.exec_openssl(command, stdin=certs)
+        #except:
+        #    raise Exception( 'Failed to write chain file!' )
+        finally:
+            shutil.rmtree(chain_dir)
 
-                ## Get the subject to print it first in the chain file
-                subj = self.get_subject_from_cert(cert_file)
+        if result == "stdin: OK\n":
+            return True
+        else:
+            raise self.VerifyError(result)
 
-                w.write( '%s\n' % subj )
-                w.write(output)
-
-            w.close()
-        except:
-            raise Exception( 'Failed to write chain file!' )
-
-
-    def get_hash_from_cert(self):
-        '''Use openssl to get the hash value of a given certificate'''
-
-        command = 'x509 -hash -noout -in %s' % self.crt
-        output  = self.exec_openssl(command.split())
+    def get_hash_from_cert(self, cert):
+        """Use openssl to get the hash value of a given certificate
+        """
+        command = 'x509 -hash -noout'
+        output  = self.exec_openssl(command.split(), cert)
 
         return output.rstrip("\n")
 

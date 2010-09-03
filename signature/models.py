@@ -8,6 +8,7 @@ from M2Crypto import BIO, m2, ASN1, RSA, EVP, X509, SMIME
 from M2Crypto.util import no_passphrase_callback
 from signature import utils
 from tempfile import NamedTemporaryFile, TemporaryFile
+from signature.openssl import Openssl
 
 from datetime import datetime
 
@@ -273,8 +274,11 @@ class Certificate(BaseCert):
     ca_serial = models.PositiveIntegerField(null=True, editable=False)
     subject_kid = models.CharField(max_length=60, editable=False, unique=True)
     auth_kid = models.CharField(max_length=60, editable=False)
-    crl = models.TextField(editable=False)
+    crl = models.TextField(editable=False, null=True, blank=True)
+    crlnumber = models.PositiveIntegerField(editable=False, null=True, blank=True)
     revoked = models.BooleanField(editable=False, default=False)
+    trust = models.NullBooleanField(editable=False, null=True)
+    certhash = models.CharField(editable=False, unique=True, max_length=9)
 
     def m2_x509(self):
         """Return M2Crypto's x509 instance of certificate
@@ -286,14 +290,15 @@ class Certificate(BaseCert):
     def generate_x509_root(self, passphrase=None):
         """Generate x509 certificate with instance informations
         """
-        from signature.openssl import Openssl
         # Generate CA Request
         ca_pkey = self.key.private
 
         subject = self.get_subject()
 
-        pem = Openssl().generate_self_signed_cert(self.days, subject, ca_pkey, passphrase)
+        ossl = Openssl()
+        pem = ossl.generate_self_signed_cert(self.days, subject, ca_pkey, passphrase)
         self.pem = pem
+        self.certhash = ossl.get_hash_from_cert(pem)
         x509 = X509.load_cert_string(pem, X509.FORMAT_PEM)
         self.serial = x509.get_serial_number()
         self.begin = x509.get_not_before().get_datetime()
@@ -304,13 +309,13 @@ class Certificate(BaseCert):
         self.auth_kid = [keyid.lstrip('keyid:') for keyid in auth_kid if keyid.startswith("keyid:")][0].strip()
         self.ca_serial = 1
         self.is_ca = True
+        self.trust = True
         # Add date
         self.created = datetime.now()
 
     def sign_request(self, rqst, days, passphrase=None, ca=False):
         """Sign a Request and return a Certificate instance
         """
-        from signature.openssl import Openssl
         ossl = Openssl()
 
         pem = ossl.sign_csr(rqst.pem, self.key.private, self.pem, self.ca_serial, days, passphrase, ca)
@@ -318,6 +323,7 @@ class Certificate(BaseCert):
 
         c_cert = Certificate()
         c_cert.pem = pem
+        c_cert.certhash = ossl.get_hash_from_cert(pem)
         c_cert.user = rqst.user
         c_cert.issuer = self
         c_cert.key = rqst.key
@@ -328,6 +334,7 @@ class Certificate(BaseCert):
         c_cert.organization = rqst.organization
         c_cert.OU = rqst.OU
         c_cert.state = rqst.state
+        c_cert.trust = True
 
         x509 = X509.load_cert_string(pem, X509.FORMAT_PEM)
         c_cert.serial = x509.get_serial_number()
@@ -350,9 +357,11 @@ class Certificate(BaseCert):
     def new_from_pem(cls, pem, user=None, key=None):
         """Create a Certificate Instance with an existing PEM
         """
+        ossl = Openssl()
         cert = cls(user=user, key=key)
         x509 = X509.load_cert_string(pem, X509.FORMAT_PEM)
         cert.pem = x509.as_pem()
+        cert.certhash = ossl.get_hash_from_cert(pem)
         issuer = x509.get_issuer()
         if issuer.C:
             cert.country = smart_unicode(issuer.C)
@@ -439,6 +448,41 @@ class Certificate(BaseCert):
         # get data signed
         data_signed = out.read()
         return data_signed
+
+    def get_cert_chain(self):
+        """Retrieve all certificates of the certificate chain
+        and append to pem_base
+        """
+        chain = []
+        current_cert = self
+        while current_cert:
+            chain.append(current_cert)
+            current_cert = current_cert.issuer
+        chain.reverse()
+        return chain
+
+
+    def check_chain(self, silent=False):
+        """Check certificate chain
+
+        Quick only use database cache
+        """
+        chain = self.get_cert_chain()
+        ossl = Openssl()
+        result = False
+        if silent:
+            try:
+                result = ossl.verify_ca_chain(chain)
+            except ossl.VerifyError:
+                return False
+        else:
+            result = ossl.verify_ca_chain(chain)
+        return result
+
+    def check(self, silent=False):
+        """Check certificate
+        """
+        return self.check_chain(silent)
 
     def sign_model(self, obj, passphrase, use_natural_keys=False, *args, **kwargs):
         """Sign a model instance or a queryset
