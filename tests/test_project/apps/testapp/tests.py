@@ -215,7 +215,7 @@ class SignaturePKITestCase(TestCase):
         self.assertEqual(c_cert.serial, 2L)
         self.assertEqual(ca_cert.ca_serial, 2)
         self.assertTrue("Signature ok" not in c_cert.pem)
-        self.assertTrue(c_cert.trust)
+        self.assertFalse(c_cert.trust)
         self.assertTrue(ca_cert.trust)
         self.assertTrue(ca_cert.certhash)
         self.assertTrue(c_cert.certhash)
@@ -380,9 +380,9 @@ class SignaturePKITestCase(TestCase):
 
         self.assertEqual(c_cert.get_cert_chain(), [ca_cert, c_cert])
         self.assertEqual(u_cert.get_cert_chain(), [ca_cert, c_cert, u_cert])
-        #self.assertRaises(Openssl.VerifyError, ca_cert.check)
-        #self.assertRaises(Openssl.VerifyError, c_cert.check)
-        #self.assertRaises(Openssl.VerifyError, u_cert.check)
+        self.assertRaises(Openssl.VerifyError, ca_cert.check)
+        self.assertRaises(Openssl.VerifyError, c_cert.check)
+        self.assertRaises(Openssl.VerifyError, u_cert.check)
         ca_cert.trust = True
         ca_cert.save()
 
@@ -391,12 +391,29 @@ class SignaturePKITestCase(TestCase):
         # Tested with TransactionTestCase
         ca_cert = Certificate.objects.get(pk=ca_cert.id)
         c_cert = Certificate.objects.get(pk=c_cert.id)
-        u_cert = Certificate.objects.get(pk=c_cert.id)
+        u_cert = Certificate.objects.get(pk=u_cert.id)
         self.assertEqual(c_cert.get_cert_chain()[0].trust, True)
 
-        self.assertTrue(ca_cert.check())
-        self.assertTrue(c_cert.check())
+        self.assertTrue(ca_cert.check(crlcheck=False))
+        self.assertTrue(c_cert.check(crlcheck=False))
+        self.assertTrue(u_cert.check(crlcheck=False))
+
+        # Add crl
+        # Use Quick method
+        c_cert.revoked = True
+        c_cert.save()
+        u_cert = Certificate.objects.get(pk=u_cert.id)
+        self.assertFalse(u_cert.check(quick=True))
+        c_cert.revoked = False
+        c_cert.save()
+        u_cert = Certificate.objects.get(pk=u_cert.id)
         self.assertTrue(u_cert.check())
+        # Use openssl method
+        c_cert.crl = "Wrong crl"
+        c_cert.save()
+        u_cert = Certificate.objects.get(pk=u_cert.id)
+        self.assertRaises(Openssl.VerifyError, u_cert.check)
+        # TODO : Add real CRL
 
 
 class SignatureTestCase(TestCase):

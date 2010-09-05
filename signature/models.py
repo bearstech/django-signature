@@ -334,7 +334,6 @@ class Certificate(BaseCert):
         c_cert.organization = rqst.organization
         c_cert.OU = rqst.OU
         c_cert.state = rqst.state
-        c_cert.trust = True
 
         x509 = X509.load_cert_string(pem, X509.FORMAT_PEM)
         c_cert.serial = x509.get_serial_number()
@@ -461,13 +460,11 @@ class Certificate(BaseCert):
         chain.reverse()
         return chain
 
-
-    def check_chain(self, silent=False):
+    def check_chain(self, chain=None, silent=False):
         """Check certificate chain
-
-        Quick only use database cache
         """
-        chain = self.get_cert_chain()
+        if not chain:
+            chain = self.get_cert_chain()
         ossl = Openssl()
         result = False
         if silent:
@@ -479,10 +476,40 @@ class Certificate(BaseCert):
             result = ossl.verify_ca_chain(chain)
         return result
 
-    def check(self, silent=False):
+    def check_crl(self, silent=False, quick=False):
+        """Check CRL for this certificate
+
+        Quick only use database cache
+        """
+        if self.revoked:
+            return False
+        elif quick:
+            return True
+        if self.issuer:
+            if self.issuer.crl:
+                ossl = Openssl()
+                return not ossl.get_revoke_status_from_cert(self, self.crl)
+        return True
+
+    def check_crl_chain(self, chain=None, silent=False, quick=False):
+        """Check CRL chain
+
+        Quick only use database cache
+        """
+        for cert in chain:
+            if not cert.check_crl(silent, quick):
+                return False
+        return True
+
+    def check(self, silent=False, quick=False, crlcheck=True):
         """Check certificate
         """
-        return self.check_chain(silent)
+        chain = self.get_cert_chain()
+        chain_valid = self.check_chain(chain, silent)
+        crl_valid = False
+        if crlcheck:
+            crl_valid = self.check_crl_chain(chain, silent, quick)
+        return chain_valid and (crl_valid or not crlcheck)
 
     def sign_model(self, obj, passphrase, use_natural_keys=False, *args, **kwargs):
         """Sign a model instance or a queryset

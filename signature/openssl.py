@@ -184,10 +184,10 @@ class Openssl():
         stdout_value, stderr_value = proc.communicate(stdin)
 
         if proc.returncode != 0:
-            logger.error('openssl command "%s" failed with returncode %d' % (c[1], proc.returncode))
-            logger.error(stdout_value)
+            #logger.error('openssl command "%s" failed with returncode %d' % (c[1], proc.returncode))
+            #logger.error(stdout_value)
 
-            raise Exception(stdout_value)
+            raise self.VerifyError(stdout_value)
         else:
             return stdout_value
 
@@ -218,7 +218,8 @@ class Openssl():
         return True
 
     def sign_csr(self, csr, cakey, cacrt, serial, days, passphrase=None, ca_capable=False):
-        '''Sign the CSR with given CA'''
+        """Sign the CSR with given CA
+        """
 
         logger.info( 'Signing CSR' )
 
@@ -320,19 +321,23 @@ class Openssl():
         output  = self.exec_openssl(command.split())
         return output.rstrip("\n")
 
-    def get_revoke_status_from_cert(self):
-        '''Is the given certificate already revoked? True=yes, False=no'''
+    def get_revoke_status_from_cert(self, cert, crl):
+        """Is the given certificate already revoked? True=yes, False=no
 
-        command = 'crl -text -noout -in %s' % self.crl
-        output  = self.exec_openssl(command.split())
+        Beware : that don't check cert <-> crl signature
+        """
+        serial = cert.serial
+
+        command = 'crl -text -noout'
+        output  = self.exec_openssl(command.split(), stdin=crl)
 
         serial_re = re.compile('^\s+Serial\sNumber\:\s+(\w+)')
         lines = output.split('\n')
 
         for l in lines:
             if serial_re.match(l):
-                if serial_re.match(l).group(1) == self.i.serial:
-                    logger.info( "The certificate is revoked" )
+                if serial_re.match(l).group(1) == serial:
+                    #logger.info( "The certificate is revoked" )
                     return True
 
         return False
