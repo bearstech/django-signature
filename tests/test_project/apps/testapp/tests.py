@@ -364,6 +364,8 @@ class SignaturePKITestCase(TestCase):
     def testCertificateCheck(self):
         """Load many x509 and check certificates
         """
+        ca_pwd = "R00tz"
+        c_pwd = "1234"
         # Check relations for certs imports
         ca_cert = Certificate.new_from_pem(CA_CERT)
         ca_cert.save()
@@ -414,6 +416,20 @@ class SignaturePKITestCase(TestCase):
         u_cert = Certificate.objects.get(pk=u_cert.id)
         self.assertRaises(Openssl.VerifyError, u_cert.check)
         # TODO : Add real CRL
+
+        # Gen CRL for CA
+        k = Key.new_from_pem(CA_KEY, ca_pwd)
+        k.save()
+        ca_cert = Certificate.objects.get(pk=ca_cert.id)
+        ca_cert.caserial = 2
+        ca_cert.gen_crl(ca_pwd)
+        ca_cert = Certificate.objects.get(pk=ca_cert.id)
+        self.assertTrue("CRL" in ca_cert.crl)
+        c_cert.crl = None
+        c_cert.save()
+        u_cert = Certificate.objects.get(pk=u_cert.id)
+        ca_cert = Certificate.objects.get(pk=ca_cert.id)
+        self.assertTrue(u_cert.check())
 
 
 class SignatureTestCase(TestCase):

@@ -448,9 +448,14 @@ class Certificate(BaseCert):
         data_signed = out.read()
         return data_signed
 
+    def get_issued(self):
+        """Retrieve all certificates issued by the certificate
+        """
+        chain = Certificate.objects.filter(issuer=self)
+        return chain
+
     def get_cert_chain(self):
         """Retrieve all certificates of the certificate chain
-        and append to pem_base
         """
         chain = []
         current_cert = self
@@ -459,6 +464,26 @@ class Certificate(BaseCert):
             current_cert = current_cert.issuer
         chain.reverse()
         return chain
+
+    def get_cert_chain_aspem(self):
+        """Retrieve all certificates of the certificate chain
+        as pem
+        """
+        pemchain = []
+        chain = self.get_cert_chain()
+        for cert in chain:
+            crlchain.append(cert.pem)
+        return crlchain
+
+    def get_crl_chain_aspem(self):
+        """Retrieve all crls of the certificate chain
+        """
+        crlchain = []
+        chain = self.get_cert_chain()
+        for cert in chain:
+            if cert.crl:
+                crlchain.append(cert.crl)
+        return crlchain
 
     def check_chain(self, chain=None, silent=False):
         """Check certificate chain
@@ -488,7 +513,7 @@ class Certificate(BaseCert):
         if self.issuer:
             if self.issuer.crl:
                 ossl = Openssl()
-                return not ossl.get_revoke_status_from_cert(self, self.crl)
+                return not ossl.get_revoke_status_from_cert(self, self.issuer.crl)
         return True
 
     def check_crl_chain(self, chain=None, silent=False, quick=False):
@@ -510,6 +535,18 @@ class Certificate(BaseCert):
         if crlcheck:
             crl_valid = self.check_crl_chain(chain, silent, quick)
         return chain_valid and (crl_valid or not crlcheck)
+
+    def gen_crl(self, passphrase=""):
+        """Generate CRL for this certificate
+        """
+        cakey = self.key.private
+        issued = self.get_issued()
+        crlnumber = self.crlnumber or 1
+        ossl = Openssl()
+        self.crl = ossl.generate_crl(self, cakey, crlnumber, self.crl, issued, passphrase=passphrase)
+        self.crlnumber = crlnumber + 1
+        self.save()
+        return self.crl
 
     def sign_model(self, obj, passphrase, use_natural_keys=False, *args, **kwargs):
         """Sign a model instance or a queryset
