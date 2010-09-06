@@ -23,8 +23,7 @@ Todo :
 ------
 
  - Sign complex models
- - Create CRL
- - Verify CRLs
+ - Generate indexes with OpenSSL.generate_index()
  - ... and much more
 
 Examples :

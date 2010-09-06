@@ -446,6 +446,15 @@ class SignaturePKITestCase(TestCase):
         c_cert = Certificate.objects.get(pk=c_cert.id)
         u_cert = Certificate.objects.get(pk=u_cert.id)
         self.assertFalse(u_cert.check())
+        self.assertTrue("02" in ca_cert.index)
+        self.assertTrue("World Company" in ca_cert.index)
+
+        # Revocation must be present on other crls
+        ca_cert.gen_crl(ca_pwd)
+        ca_cert = Certificate.objects.get(pk=ca_cert.id)
+        c_cert = Certificate.objects.get(pk=c_cert.id)
+        u_cert = Certificate.objects.get(pk=u_cert.id)
+        self.assertFalse(u_cert.check())
 
 
 class SignatureTestCase(TestCase):

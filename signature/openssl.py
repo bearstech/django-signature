@@ -307,65 +307,6 @@ class Openssl():
             raise Exception( "Failed to renew certificate %s! CSR is missing!" % self.i.name )
 
     @in_temp_dir
-    def generate_crl(self, ca, cakey, crlnumber, crlchain=[], issued=[], passphrase=None):
-        """Generate CRL: When a CA is modified
-        """
-        certdir = os.path.join(self.tmpdir, "certs")
-        os.mkdir(certdir, 0700)
-        privdir = os.path.join(self.tmpdir, "private")
-        os.mkdir(privdir, 0700)
-        crldir = os.path.join(self.tmpdir, "crl")
-        os.mkdir(crldir, 0700)
-
-        # Issued
-        for c in issued:
-            filepath = os.path.join(certdir, "%s.0" % c.certhash)
-            w = open(filepath, 'w')
-            w.write(c.pem)
-            w.close()
-
-        # CA cert
-        filepath = os.path.join(self.tmpdir, "cacert.pem")
-        w = open(filepath, 'w')
-        w.write(ca.pem)
-        w.close()
-
-        # CA key
-        filepath = os.path.join(privdir, "cakey.pem")
-        w = open(filepath, 'w')
-        w.write(cakey)
-        w.close()
-
-        # Config
-        shutil.copy(PKI_OPENSSL_CONF, self.tmpdir)
-        confpath = os.path.join(self.tmpdir, os.path.split(PKI_OPENSSL_CONF)[-1])
-
-        # Generate Index file
-        open(os.path.join(self.tmpdir, "index.txt"), "w").write("")
-        # Generate Serial file
-        serial = "%X" % ca.ca_serial
-        serial = serial.rjust(2,"0")
-        open(os.path.join(self.tmpdir, "serial"), "w").write(serial)
-        # Generate crlnumber file
-        crlnumber = "%X" % crlnumber
-        crlnumber = crlnumber.rjust(2,"0")
-        open(os.path.join(self.tmpdir, "crlnumber"), "w").write(crlnumber)
-        #open(os.path.join(self.tmpdir, "crlnumber"), "w").write("")
-
-        # crl
-        crlpath = os.path.join(self.tmpdir, "%s.r0" % ca.certhash)
-        if ca.crl:
-            w = open(crlpath, 'w')
-            w.write(ca.crl)
-            w.close()
-
-        logger.info( 'CRL generation for CA %s' % ca )
-        command = ["ca", "-config", confpath, "-gencrl", "-crldays", "1", "-passin", "stdin", "-out", crlpath]
-        result = self.exec_openssl(command, stdin=passphrase, cwd=self.tmpdir)
-        crlpem = open(crlpath, 'r').read()
-        return crlpem
-
-    @in_temp_dir
     def verify_ca_chain(self, chain):
         """Verify the the CA chain
         """
@@ -425,6 +366,98 @@ class Openssl():
 
         return False
 
+    def generate_index(self, ca, issued):
+        """Generate Index
+        http://www.mail-archive.com/openssl-users@openssl.org/msg45982.html
+
+        The columns are defined as 
+        #define DB_type         0 /* Status of the certificate */
+        #define DB_exp_date     1 /* Expiry date */
+        #define DB_rev_date     2 /* Revocation date */
+        #define DB_serial       3       /* Serial No., index - unique */
+        #define DB_file         4      
+        #define DB_name         5       /* DN, index - unique when active and not disabled */
+
+        DB_type is defined as
+        #define DB_TYPE_REV    'R' /* Revoked */
+        #define DB_TYPE_EXP    'E' /* Expired */
+        #define DB_TYPE_VAL    'V' /* Valid */
+
+        /!\ Only revoked for now ...
+
+        """
+        raise NotImplementedError()
+        from M2Crypto.ASN1 import ASN1_UTCTIME
+        index = ""
+        for cert in issued:
+            if cert.revoked:
+                subject = self.get_subject_from_cert(cert)
+                asn1 = ASN1_UTCTIME()
+                asn1.set_datetime(cert)
+                #expiry = asn1.
+                # TODO : How can we output datetimes in ASN1_UTCTIME Format ???
+
+
+    @in_temp_dir
+    def generate_crl(self, ca, cakey, crlnumber, crlchain=[], issued=[], passphrase=None):
+        """Generate CRL: When a CA is modified
+        """
+        certdir = os.path.join(self.tmpdir, "certs")
+        os.mkdir(certdir, 0700)
+        privdir = os.path.join(self.tmpdir, "private")
+        os.mkdir(privdir, 0700)
+        crldir = os.path.join(self.tmpdir, "crl")
+        os.mkdir(crldir, 0700)
+
+        # Issued
+        for c in issued:
+            filepath = os.path.join(certdir, "%s.0" % c.certhash)
+            w = open(filepath, 'w')
+            w.write(c.pem)
+            w.close()
+
+        # CA cert
+        filepath = os.path.join(self.tmpdir, "cacert.pem")
+        w = open(filepath, 'w')
+        w.write(ca.pem)
+        w.close()
+
+        # CA key
+        filepath = os.path.join(privdir, "cakey.pem")
+        w = open(filepath, 'w')
+        w.write(cakey)
+        w.close()
+
+        # Config
+        shutil.copy(PKI_OPENSSL_CONF, self.tmpdir)
+        confpath = os.path.join(self.tmpdir, os.path.split(PKI_OPENSSL_CONF)[-1])
+
+        # Generate Index file
+        open(os.path.join(self.tmpdir, "index.txt"), "w").write(ca.index)
+        # Generate Serial file
+        serial = "%X" % ca.ca_serial
+        serial = serial.rjust(2,"0")
+        open(os.path.join(self.tmpdir, "serial"), "w").write(serial)
+        # Generate crlnumber file
+        crlnumber = "%X" % crlnumber
+        crlnumber = crlnumber.rjust(2,"0")
+        open(os.path.join(self.tmpdir, "crlnumber"), "w").write(crlnumber)
+        #open(os.path.join(self.tmpdir, "crlnumber"), "w").write("")
+
+        # crl
+        crlpath = os.path.join(self.tmpdir, "%s.r0" % ca.certhash)
+        if ca.crl:
+            w = open(crlpath, 'w')
+            w.write(ca.crl)
+            w.close()
+
+        logger.info( 'CRL generation for CA %s' % ca )
+        command = ["ca", "-config", confpath, "-gencrl", "-crldays", "1", "-passin", "stdin", "-out", crlpath]
+        result = self.exec_openssl(command, stdin=passphrase, cwd=self.tmpdir)
+        crlpem = open(crlpath, 'r').read()
+        return crlpem
+
+
     @in_temp_dir
     def revoke_cert(self, ca, cakey, crlnumber, crl, cert, issued=[], passphrase=None):
         """Generate CRL: When a CA is modified
@@ -463,7 +496,7 @@ class Openssl():
         confpath = os.path.join(self.tmpdir, os.path.split(PKI_OPENSSL_CONF)[-1])
 
         # Generate Index file
-        open(os.path.join(self.tmpdir, "index.txt"), "w").write("")
+        open(os.path.join(self.tmpdir, "index.txt"), "w").write(ca.index)
         # Generate Serial file
         serial = "%X" % ca.ca_serial
         serial = serial.rjust(2,"0")
@@ -480,10 +513,11 @@ class Openssl():
         w.write(crl)
         w.close()
 
-        shutil.copytree(self.tmpdir, "/tmp/pkitest")
+        #shutil.copytree(self.tmpdir, "/tmp/pkitest")
         command = ["ca", "-config", confpath, "-batch", "-revoke", torevoke, "-passin", "stdin" ]
         result = self.exec_openssl(command, stdin=passphrase, cwd=self.tmpdir)
         command = ["ca", "-config", confpath, "-gencrl", "-crldays", "1", "-passin", "stdin", "-out", crlpath]
         result = self.exec_openssl(command, stdin=passphrase, cwd=self.tmpdir)
         crlpem = open(crlpath, 'r').read()
-        return crlpem
+        index = open(os.path.join(self.tmpdir, "index.txt"), 'r').read()
+        return crlpem, index

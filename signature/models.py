@@ -279,6 +279,7 @@ class Certificate(BaseCert):
     revoked = models.BooleanField(editable=False, default=False)
     trust = models.NullBooleanField(editable=False, null=True)
     certhash = models.CharField(editable=False, unique=True, max_length=9)
+    index = models.TextField(editable=False, default="") # temporary
 
     def m2_x509(self):
         """Return M2Crypto's x509 instance of certificate
@@ -560,7 +561,7 @@ class Certificate(BaseCert):
         issued = self.get_issued()
         crlnumber = self.crlnumber or 1
         ossl = Openssl()
-        self.crl = ossl.revoke_cert(self, cakey, crlnumber, self.crl, cert, issued, passphrase=passphrase)
+        self.crl, self.index = ossl.revoke_cert(self, cakey, crlnumber, self.crl, cert, issued, passphrase=passphrase)
         self.crlnumber = crlnumber + 1
         self.save()
         cert.revoked = True
