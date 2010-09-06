@@ -187,6 +187,20 @@ class Openssl():
         """
         pass
 
+    def exec_rehash(directory):
+        """call c_rehash on directory
+        """
+        proc = Popen("/usr/bin/c_rehash %s" % directory, shell=False, stdin=PIPE, stdout=PIPE, stderr=STDOUT)
+        stdout_value, stderr_value = proc.communicate()
+
+        if proc.returncode != 0:
+            #logger.error('openssl command "%s" failed with returncode %d' % (c[1], proc.returncode))
+            #logger.error(stdout_value)
+
+            raise self.VerifyError(stdout_value)
+        else:
+            return stdout_value
+
     def exec_openssl(self, command, stdin=None ,env_vars=None):
         '''Run openssl command. PKI_OPENSSL_BIN doesn't need to be specified'''
 
