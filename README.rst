@@ -1,7 +1,9 @@
 django-signature
 ================
 
-Application to generate x509 certificates and sign models
+Application to generate x509 certificates and sign models with PKCS#7 standard
+
+http://bitbucket.org/bearstech/django-signature/
 
 Beta : not really for production use
 
@@ -78,7 +80,7 @@ There is an simple PKI example::
     c_cert.revoke(c_cert, ca_pwd)
 
     # Import a Key / Certificate:
-    imported = Key.new_from_pem(pem_str)
+    imported = Key.new_from_pem(pem_str, passphrase="gigowatt", user=None)
     imported = Certificate.new_from_pem(pem_str)
 
 For more examples, see SignaturePKITestCase into tests/test_project/apps/testapp/tests.py
