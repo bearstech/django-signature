@@ -3,27 +3,31 @@ django-signature
 
 Application to generate x509 certificates and sign models
 
-Alpha : not really for production use
+Beta : not really for production use
 
 Features :
 ----------
 
- - Generate (or load) RSA keys and store them in Django models
- - Generate x509 certificates and store them in Django models
- - Load x509 certificat and find relations with other Certificates and Keys
- - Generate (or load) x509 Requests and store them in Django models
- - Generate self-signed x509 for root CA
- - Verify certificate chain (without crl)
- - Sign Requests
- - Sign/verify text
- - Sign/verify simple models
- - Support FileField (with sha512 digest)
+ - PKI :
+    + Generate (or load) RSA keys and store them in Django models
+    + Generate x509 certificates and store them in Django models
+    + Load x509 certificat and find relations with other Certificates and Keys
+    + Generate (or load) x509 Requests and store them in Django models
+    + Generate self-signed x509 for root CA
+    + Verify certificate chain (with CRLs)
+    + Sign Certificate Requests
+ - Digital signature
+    + Sign/verify text with PKCS#7 standard
+    + Sign/verify simple modelswith PKCS#7 standard
+    + Support FileField (with sha512 digest)
+ - Good test coverage
 
 Todo :
 ------
 
  - Sign complex models
  - Generate indexes with OpenSSL.generate_index()
+ - Improve configuration
  - ... and much more
 
 Examples :
@@ -49,6 +53,7 @@ There is an simple PKI example::
     ca_cert.days = 150
     ca_cert.is_ca = True
     ca_cert.generate_x509_root(ca_pwd)
+    ca_cert.save()
 
     # Client's request
     rqst = CertificateRequest()
@@ -56,14 +61,20 @@ There is an simple PKI example::
     rqst.C = "FR"
     rqst.key = c_key
     rqst.sign_request(c_pwd)
+    rqst.save()
 
     # Sign client's request and return certificate
-    c_cert = ca_cert.sign_request(rqst, 150, ca_pwd)
+    # (you can give to Client's certificate CA capabilities with ca=True)
+    c_cert = ca_cert.sign_request(rqst, 150, ca_pwd, ca=False)
 
     # Verify created certificate :
     c_cert.check()
+    
+    # Revoke certificate :
+    c_cert.revoke(c_cert, ca_pwd)
 
-    # Import a certificate:
+    # Import a Key / Certificate:
+    imported = Key.new_from_pem(pem_str)
     imported = Certificate.new_from_pem(pem_str)
 
 For more examples, see SignaturePKITestCase into tests/test_project/apps/testapp/tests.py

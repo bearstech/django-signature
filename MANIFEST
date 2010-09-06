@@ -1,5 +1,9 @@
-README
+README.rst
+LICENCE.txt
 setup.py
 signature/__init__.py
 signature/models.py
 signature/openssl.py
+signature/openssl.cnf
+signature/admin.py
+signature/settings.py
