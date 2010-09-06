@@ -25,7 +25,7 @@ import string, random
 from signature.settings import PKI_OPENSSL_BIN, PKI_OPENSSL_CONF, PKI_DIR, PKI_OPENSSL_TEMPLATE, PKI_SELF_SIGNED_SERIAL
 
 from subprocess import Popen, PIPE, STDOUT
-from shutil import rmtree
+import shutil
 from logging import getLogger
 from tempfile import NamedTemporaryFile, TemporaryFile, mkdtemp
 
@@ -120,7 +120,7 @@ def refresh_pki_metadata(ca_list):
                 # probably can be removed when debugging will be finished
                 if os.path.isfile(os.path.join(d, 'crlnumber')):
                     logger.debug("Purging CA directory tree %s" % d)
-                    rmtree(d) # FIXME: commented for debugging purposes
+                    shutil.rmtree(d) # FIXME: commented for debugging purposes
                 else:
                     logger.warning('Directory %s does not contain any metadata, preserving it' % d)
 
@@ -149,19 +149,38 @@ def refresh_pki_metadata(ca_list):
 ## OpenSSLActions: All non config related actions
 ##------------------------------------------------------------------##
 
+def in_temp_dir(func):
+    """Create a temp dir and clean them on end of function
+    """
+    def new_func(*args, **kwargs):
+        if args[0].tmpdir:
+            return func(*args, **kwargs)
+        tmpdir = mkdtemp()
+        oldvalue = args[0].tmpdir
+        args[0].tmpdir = tmpdir
+        try:
+            result = func(*args, **kwargs)
+        finally:
+            shutil.rmtree(tmpdir)
+            args[0].tmpdir = oldvalue
+        return result
+
+    new_func.__name__ = func.__name__
+    new_func.__doc__ = func.__doc__
+    new_func.__dict__.update(func.__dict__)
+    return new_func
+
 class Openssl():
     '''Do the real openssl work - Generate keys, csr, sign'''
 
-    def __init__(self):
+    def __init__(self, tmpdir=""):
         '''Class constructor'''
 
         ## Generate a random string as ENV variable name
         self.env_pw = "".join(random.sample(string.letters+string.digits, 10))
 
-        self.conf = NamedTemporaryFile()
-        self.conf.write(PKI_OPENSSL_CONF)
-        self.conf.seek(0)
-        self.confname = self.conf.name
+        #self.confname = PKI_OPENSSL_CONF
+        self.tmpdir = tmpdir
 
     class VerifyError(Exception):
         """Openssl verify fails
@@ -217,10 +236,12 @@ class Openssl():
 
         return True
 
+    @in_temp_dir
     def sign_csr(self, csr, cakey, cacrt, serial, days, passphrase=None, ca_capable=False):
         """Sign the CSR with given CA
         """
-
+        shutil.copy(PKI_OPENSSL_CONF, self.tmpdir)
+        confpath = os.path.join(self.tmpdir, os.path.split(PKI_OPENSSL_CONF)[-1])
         logger.info( 'Signing CSR' )
 
         if ca_capable:
@@ -241,7 +262,7 @@ class Openssl():
         serialfile.seek(0)
         certfile = NamedTemporaryFile()
 
-        command = ['x509', '-req', '-CAserial', serialfile.name,'-extfile', self.confname , '-sha1', '-days', str(days), '-in', csrfile.name, '-CA', cafile.name, '-CAkey', cakeyfile.name, '-passin', 'stdin', '-extensions', extension, '-out', certfile.name]
+        command = ['x509', '-req', '-CAserial', serialfile.name,'-extfile', confpath , '-sha1', '-days', str(days), '-in', csrfile.name, '-CA', cafile.name, '-CAkey', cakeyfile.name, '-passin', 'stdin', '-extensions', extension, '-out', certfile.name]
         self.exec_openssl(command, stdin=passphrase)
         pem = certfile.read()
         return pem
@@ -282,7 +303,6 @@ class Openssl():
     def verify_ca_chain(self, chain):
         """Verify the the CA chain
         """
-        import shutil
         trusted_chain = [crt for crt in chain if crt.trust]
         certs = "".join([crt.pem for crt in chain ])
 
