@@ -300,26 +300,21 @@ class Openssl():
         command = 'ca -config %s -name %s -gencrl -out %s -crldays 1 -passin env:%s' % (PKI_OPENSSL_CONF, ca, crl, self.env_pw)
         self.exec_openssl(command.split(), env_vars={ self.env_pw: str(pf) })
 
+    @in_temp_dir
     def verify_ca_chain(self, chain):
         """Verify the the CA chain
         """
         trusted_chain = [crt for crt in chain if crt.trust]
         certs = "".join([crt.pem for crt in chain ])
 
-        try:
-            chain_dir = mkdtemp()
-            for c in trusted_chain:
-                filepath = os.path.join(chain_dir, "%s.0" % c.certhash)
-                w = open(filepath, 'w')
-                w.write(c.pem)
-                w.close()
-            command = ['verify', '-CApath', chain_dir, ]
+        for c in trusted_chain:
+            filepath = os.path.join(self.tmpdir, "%s.0" % c.certhash)
+            w = open(filepath, 'w')
+            w.write(c.pem)
+            w.close()
+        command = ['verify', '-CApath', self.tmpdir, ]
 
-            result = self.exec_openssl(command, stdin=certs)
-        #except:
-        #    raise Exception( 'Failed to write chain file!' )
-        finally:
-            shutil.rmtree(chain_dir)
+        result = self.exec_openssl(command, stdin=certs)
 
         if result == "stdin: OK\n":
             return True
