@@ -9,21 +9,17 @@ Features :
 ----------
 
  - PKI :
-
-    + Generate (or load) RSA keys and store them in Django models
-    + Generate x509 certificates and store them in Django models
-    + Load x509 certificat and find relations with other Certificates and Keys
-    + Generate (or load) x509 Requests and store them in Django models
-    + Generate self-signed x509 for root CA
-    + Verify certificate chain (with CRLs)
-    + Sign Certificate Requests
- 
+   + Generate (or load) RSA keys and store them in Django models
+   + Generate x509 certificates and store them in Django models
+   + Load x509 certificat and find relations with other Certificates and Keys
+   + Generate (or load) x509 Requests and store them in Django models
+   + Generate self-signed x509 for root CA
+   + Verify certificate chain (with CRLs)
+   + Sign Certificate Requests
  - Digital signature
- 
-    + Sign/verify text with PKCS#7 standard
-    + Sign/verify simple modelswith PKCS#7 standard
-    + Support FileField (with sha512 digest)
-
+   + Sign/verify text with PKCS#7 standard
+   + Sign/verify simple modelswith PKCS#7 standard
+   + Support FileField (with sha512 digest)
  - Good test coverage
 
 Todo :
