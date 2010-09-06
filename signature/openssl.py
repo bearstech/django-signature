@@ -314,6 +314,8 @@ class Openssl():
         os.mkdir(certdir, 0700)
         privdir = os.path.join(self.tmpdir, "private")
         os.mkdir(privdir, 0700)
+        crldir = os.path.join(self.tmpdir, "crl")
+        os.mkdir(crldir, 0700)
 
         # Issued
         for c in issued:
@@ -341,7 +343,7 @@ class Openssl():
         # Generate Index file
         open(os.path.join(self.tmpdir, "index.txt"), "w").write("")
         # Generate Serial file
-        serial = "%X" % ca.caserial
+        serial = "%X" % ca.ca_serial
         serial = serial.rjust(2,"0")
         open(os.path.join(self.tmpdir, "serial"), "w").write(serial)
         # Generate crlnumber file
@@ -351,12 +353,16 @@ class Openssl():
         #open(os.path.join(self.tmpdir, "crlnumber"), "w").write("")
 
         # crl
-        crlfile = NamedTemporaryFile()
+        crlpath = os.path.join(self.tmpdir, "%s.r0" % ca.certhash)
+        if ca.crl:
+            w = open(crlpath, 'w')
+            w.write(ca.crl)
+            w.close()
 
         logger.info( 'CRL generation for CA %s' % ca )
-        command = ["ca", "-config", confpath, "-gencrl", "-crldays", "1", "-passin", "stdin", "-out", crlfile.name]
+        command = ["ca", "-config", confpath, "-gencrl", "-crldays", "1", "-passin", "stdin", "-out", crlpath]
         result = self.exec_openssl(command, stdin=passphrase, cwd=self.tmpdir)
-        crlpem = crlfile.read()
+        crlpem = open(crlpath, 'r').read()
         return crlpem
 
     @in_temp_dir
@@ -389,11 +395,12 @@ class Openssl():
         return output.rstrip("\n")
 
     def get_subject_from_cert(self, cert):
-        '''Get the subject form a given CA certificate'''
+        """Get the subject form a given CA certificate
+        """
 
-        command = 'x509 -noout -subject -in %s' % cert
-        output  = self.exec_openssl(command.split())
-        return output.rstrip("\n")
+        command = ["x509", "-noout", "-subject"]
+        output  = self.exec_openssl(command, stdin=cert.pem)
+        return output.rstrip("\n").lstrip("subject= ")
 
     def get_revoke_status_from_cert(self, cert, crl):
         """Is the given certificate already revoked? True=yes, False=no
@@ -407,6 +414,8 @@ class Openssl():
 
         serial_re = re.compile('^\s+Serial\sNumber\:\s+(\w+)')
         lines = output.split('\n')
+        serial = "%X" % serial
+        serial = serial.rjust(2,"0")
 
         for l in lines:
             if serial_re.match(l):
@@ -417,17 +426,21 @@ class Openssl():
         return False
 
     @in_temp_dir
-    def revoke_cert(self, ca, cakey, crlnumber, crl, issued=[], passphrase=None):
+    def revoke_cert(self, ca, cakey, crlnumber, crl, cert, issued=[], passphrase=None):
         """Generate CRL: When a CA is modified
         """
         certdir = os.path.join(self.tmpdir, "certs")
         os.mkdir(certdir, 0700)
         privdir = os.path.join(self.tmpdir, "private")
         os.mkdir(privdir, 0700)
+        crldir = os.path.join(self.tmpdir, "crl")
+        os.mkdir(crldir, 0700)
 
         # Issued
         for c in issued:
             filepath = os.path.join(certdir, "%s.0" % c.certhash)
+            if c == cert:
+                torevoke = filepath
             w = open(filepath, 'w')
             w.write(c.pem)
             w.close()
@@ -440,6 +453,7 @@ class Openssl():
 
         # CA key
         filepath = os.path.join(privdir, "cakey.pem")
+        keyfile = filepath
         w = open(filepath, 'w')
         w.write(cakey)
         w.close()
@@ -451,7 +465,7 @@ class Openssl():
         # Generate Index file
         open(os.path.join(self.tmpdir, "index.txt"), "w").write("")
         # Generate Serial file
-        serial = "%X" % ca.caserial
+        serial = "%X" % ca.ca_serial
         serial = serial.rjust(2,"0")
         open(os.path.join(self.tmpdir, "serial"), "w").write(serial)
         # Generate crlnumber file
@@ -461,13 +475,15 @@ class Openssl():
         #open(os.path.join(self.tmpdir, "crlnumber"), "w").write("")
 
         # crl
-        crlfile = NamedTemporaryFile()
-        w = open(filepath, 'w')
+        crlpath = os.path.join(self.tmpdir, "crl.pem")
+        w = open(crlpath, 'w')
         w.write(crl)
-        w.seek(0)
+        w.close()
 
-        logger.info( 'CRL generation for CA %s' % ca )
-        command = ["ca", "-config", confpath, "-gencrl", "-crldays", "1", "-passin", "stdin", "-out", crlfile.name]
+        shutil.copytree(self.tmpdir, "/tmp/pkitest")
+        command = ["ca", "-config", confpath, "-batch", "-revoke", torevoke, "-passin", "stdin" ]
         result = self.exec_openssl(command, stdin=passphrase, cwd=self.tmpdir)
-        crlpem = crlfile.read()
+        command = ["ca", "-config", confpath, "-gencrl", "-crldays", "1", "-passin", "stdin", "-out", crlpath]
+        result = self.exec_openssl(command, stdin=passphrase, cwd=self.tmpdir)
+        crlpem = open(crlpath, 'r').read()
         return crlpem

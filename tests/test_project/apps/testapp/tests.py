@@ -421,15 +421,31 @@ class SignaturePKITestCase(TestCase):
         k = Key.new_from_pem(CA_KEY, ca_pwd)
         k.save()
         ca_cert = Certificate.objects.get(pk=ca_cert.id)
-        ca_cert.caserial = 2
+        ca_cert.ca_serial = 2
+        ca_cert.save()
+        ca_cert = Certificate.objects.get(pk=ca_cert.id)
         ca_cert.gen_crl(ca_pwd)
         ca_cert = Certificate.objects.get(pk=ca_cert.id)
         self.assertTrue("CRL" in ca_cert.crl)
+        # Must works with this CRL
         c_cert.crl = None
         c_cert.save()
         u_cert = Certificate.objects.get(pk=u_cert.id)
         ca_cert = Certificate.objects.get(pk=ca_cert.id)
         self.assertTrue(u_cert.check())
+
+        # Revoke client's certificate
+        ca_cert.revoke(c_cert, ca_pwd)
+        ca_cert = Certificate.objects.get(pk=ca_cert.id)
+        c_cert = Certificate.objects.get(pk=c_cert.id)
+        u_cert = Certificate.objects.get(pk=u_cert.id)
+        self.assertFalse(u_cert.check())
+        c_cert.revoked = False
+        c_cert.save()
+        ca_cert = Certificate.objects.get(pk=ca_cert.id)
+        c_cert = Certificate.objects.get(pk=c_cert.id)
+        u_cert = Certificate.objects.get(pk=u_cert.id)
+        self.assertFalse(u_cert.check())
 
 
 class SignatureTestCase(TestCase):

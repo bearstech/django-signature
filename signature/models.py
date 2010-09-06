@@ -514,6 +514,8 @@ class Certificate(BaseCert):
             if self.issuer.crl:
                 ossl = Openssl()
                 return not ossl.get_revoke_status_from_cert(self, self.issuer.crl)
+        elif self.subject_kid != self.auth_kid:
+            return False
         return True
 
     def check_crl_chain(self, chain=None, silent=False, quick=False):
@@ -546,6 +548,23 @@ class Certificate(BaseCert):
         self.crl = ossl.generate_crl(self, cakey, crlnumber, self.crl, issued, passphrase=passphrase)
         self.crlnumber = crlnumber + 1
         self.save()
+        return self.crl
+
+    def revoke(self, cert, passphrase=""):
+        """Generate CRL for this certificate
+        """
+        if cert.issuer != self:
+            raise Exception("I'm not the issuer.")
+
+        cakey = self.key.private
+        issued = self.get_issued()
+        crlnumber = self.crlnumber or 1
+        ossl = Openssl()
+        self.crl = ossl.revoke_cert(self, cakey, crlnumber, self.crl, cert, issued, passphrase=passphrase)
+        self.crlnumber = crlnumber + 1
+        self.save()
+        cert.revoked = True
+        cert.save()
         return self.crl
 
     def sign_model(self, obj, passphrase, use_natural_keys=False, *args, **kwargs):
