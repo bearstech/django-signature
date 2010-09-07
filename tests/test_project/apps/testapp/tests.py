@@ -264,6 +264,12 @@ class SignaturePKITestCase(TestCase):
         rqst = CertificateRequest()
         rqst.CN = "World Company ©"
         rqst.country = "FR"
+        rqst.locality = "World"
+        rqst.organization = "Company"
+        rqst.OU = "Unknown"
+        rqst.state = "Dummy"
+        rqst.country = "FR"
+        rqst.email = "dummy@dummy.fr"
         rqst.key = c_key
         rqst.sign_request(c_pwd)
         rqst.save()
@@ -284,6 +290,12 @@ class SignaturePKITestCase(TestCase):
         rqst = CertificateRequest()
         rqst.CN = "World Company ©"
         rqst.country = "FR"
+        rqst.locality = "World"
+        rqst.organization = "Company"
+        rqst.OU = "Unknown"
+        rqst.state = "Dummy"
+        rqst.country = "FR"
+        rqst.email = "dummy@dummy.fr"
         rqst.key = c_key
         rqst.sign_request(c_pwd)
         rqst.save()
@@ -296,8 +308,9 @@ class SignaturePKITestCase(TestCase):
         ca_cert.revoke(c2_cert, ca_pwd)
         ca_cert.save()
         self.assertFalse(c2_cert.check())
-        print ca_cert.index
-        print ca_cert.crl
+        #print ca_cert.index
+        #print [ca_cert.index]
+        #print ca_cert.crl
 
 
     def testSignaturePKIca(self):
