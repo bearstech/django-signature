@@ -34,6 +34,7 @@ Todo :
  - Sign complex models
  - Generate indexes with OpenSSL.generate_index()
  - Improve configuration
+ - Cert load with renew
  - ... and much more
 
 Examples :
