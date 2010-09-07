@@ -509,9 +509,10 @@ class Openssl():
 
         # crl
         crlpath = os.path.join(self.tmpdir, "crl.pem")
-        w = open(crlpath, 'w')
-        w.write(crl)
-        w.close()
+        if crl:
+            w = open(crlpath, 'w')
+            w.write(crl)
+            w.close()
 
         #shutil.copytree(self.tmpdir, "/tmp/pkitest")
         command = ["ca", "-config", confpath, "-batch", "-revoke", torevoke, "-passin", "stdin" ]

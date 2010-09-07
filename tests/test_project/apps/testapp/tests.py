@@ -435,6 +435,10 @@ class SignaturePKITestCase(TestCase):
         self.assertTrue(u_cert.check())
 
         # Revoke client's certificate
+        # Try with no crl
+        ca_cert.crl = None
+        ca_cert.save()
+        ca_cert = Certificate.objects.get(pk=ca_cert.id)
         ca_cert.revoke(c_cert, ca_pwd)
         ca_cert = Certificate.objects.get(pk=ca_cert.id)
         c_cert = Certificate.objects.get(pk=c_cert.id)
