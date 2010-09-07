@@ -272,14 +272,17 @@ class Certificate(BaseCert):
     issuer = models.ForeignKey('self', related_name='issuer_set', null=True)
     is_ca = models.BooleanField(default=False)
     ca_serial = models.PositiveIntegerField(null=True, editable=False)
-    subject_kid = models.CharField(max_length=60, editable=False, unique=True)
+    subject_kid = models.CharField(max_length=60, editable=False)
     auth_kid = models.CharField(max_length=60, editable=False)
     crl = models.TextField(editable=False, null=True, blank=True)
     crlnumber = models.PositiveIntegerField(editable=False, null=True, blank=True)
     revoked = models.BooleanField(editable=False, default=False)
     trust = models.NullBooleanField(editable=False, null=True)
-    certhash = models.CharField(editable=False, unique=True, max_length=9)
+    certhash = models.CharField(editable=False, max_length=9)
     index = models.TextField(editable=False, default="") # temporary
+
+    class Meta:
+        unique_together = (("subject_kid", "serial"))
 
     def m2_x509(self):
         """Return M2Crypto's x509 instance of certificate
@@ -321,6 +324,7 @@ class Certificate(BaseCert):
 
         pem = ossl.sign_csr(rqst.pem, self.key.private, self.pem, self.ca_serial, days, passphrase, ca)
         self.ca_serial += 1
+        self.save()
 
         c_cert = Certificate()
         c_cert.pem = pem

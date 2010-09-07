@@ -198,6 +198,7 @@ class SignaturePKITestCase(TestCase):
         ca_cert.is_ca = True
         ca_cert.generate_x509_root(ca_pwd)
         ca_cert.save()
+        self.assertEqual(ca_cert.ca_serial, 1)
         #print "\nCA cert\n", ca_cert.pem, "\n"
 
         # Client's request
@@ -229,6 +230,75 @@ class SignaturePKITestCase(TestCase):
         self.assertTrue("Subject: CN=World Company \\xC2\\xA9, C=FR" in m2x509.as_text())
         self.assertTrue("X509v3 Authority Key Identifier" in m2x509.as_text())
         self.assertTrue("X509v3 Subject Key Identifier" in m2x509.as_text())
+
+    def testSignaturePKIRevoke(self):
+        """Try create - revoke - renew
+        """
+        before = datetime(2010, 01, 01, 6, tzinfo=ASN1.UTC)
+        after = datetime(2015, 01, 01, 6, tzinfo=ASN1.UTC)
+        ca_pwd = "R00tz"
+        c_pwd = "1234"
+
+        # CA and Client keys
+        ca_key = Key.generate(ca_pwd)
+        ca_key.save()
+        #print "\nCA PRIVATE\n", ca_key.private, "\n"
+        c_key = Key.generate(c_pwd)
+        c_key.save()
+        #print "\nC PRIVATE\n", c_key.private, "\n"
+        #print "\nC PUB\n", c_key.public, "\n"
+
+        # CA Cert
+        ca_cert = Certificate()
+        ca_cert.CN = "Admin"
+        ca_cert.country = "FR"
+        ca_cert.key = ca_key
+        ca_cert.begin = before
+        ca_cert.end = after
+        ca_cert.is_ca = True
+        ca_cert.generate_x509_root(ca_pwd)
+        ca_cert.save()
+        #print "\nCA cert\n", ca_cert.pem, "\n"
+
+        # Client's request
+        rqst = CertificateRequest()
+        rqst.CN = "World Company ©"
+        rqst.country = "FR"
+        rqst.key = c_key
+        rqst.sign_request(c_pwd)
+        rqst.save()
+        #print "\nRQST\n", rqst.pem, "\n"
+
+        c_cert = ca_cert.sign_request(rqst, 300, ca_pwd)
+        c_cert.save()
+        #print "\nC_CERT\n", c_cert.pem, "\n"
+        ca_cert = Certificate.objects.get(pk=ca_cert.id)
+        c_cert = Certificate.objects.get(pk=c_cert.id)
+        ca_cert.revoke(c_cert, ca_pwd)
+        ca_cert.save()
+        ca_cert = Certificate.objects.get(pk=ca_cert.id)
+        c_cert = Certificate.objects.get(pk=c_cert.id)
+
+        rqst.delete()
+        # Client's new request
+        rqst = CertificateRequest()
+        rqst.CN = "World Company ©"
+        rqst.country = "FR"
+        rqst.key = c_key
+        rqst.sign_request(c_pwd)
+        rqst.save()
+        #print "\nRQST\n", rqst.pem, "\n"
+        c2_cert = ca_cert.sign_request(rqst, 300, ca_pwd)
+        c2_cert.save()
+        # Revoke new
+        ca_cert = Certificate.objects.get(pk=ca_cert.id)
+        c2_cert = Certificate.objects.get(pk=c2_cert.id)
+        ca_cert.revoke(c2_cert, ca_pwd)
+        ca_cert.save()
+        self.assertFalse(c2_cert.check())
+        print ca_cert.index
+        print ca_cert.crl
+
 
     def testSignaturePKIca(self):
         """Client certificate is a CA
