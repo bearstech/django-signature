@@ -245,6 +245,8 @@ class SignaturePKITestCase(TestCase):
         #print "\nCA PRIVATE\n", ca_key.private, "\n"
         c_key = Key.generate(c_pwd)
         c_key.save()
+        cc_key = Key.generate(c_pwd)
+        cc_key.save()
         #print "\nC PRIVATE\n", c_key.private, "\n"
         #print "\nC PUB\n", c_key.public, "\n"
 
@@ -308,6 +310,33 @@ class SignaturePKITestCase(TestCase):
         ca_cert.revoke(c2_cert, ca_pwd)
         ca_cert.save()
         self.assertFalse(c2_cert.check())
+        #print ca_cert.index
+        #print [ca_cert.index]
+        #print ca_cert.crl
+
+        # Try another client
+        rqst2 = CertificateRequest()
+        rqst2.CN = "Country Company ©"
+        rqst2.country = "FR"
+        rqst2.locality = "Country"
+        rqst2.organization = "Company"
+        rqst2.OU = "Unknown"
+        rqst2.state = "Dummy"
+        rqst2.country = "FR"
+        rqst2.email = "dummy2@dummy2.fr"
+        rqst2.key = c_key
+        rqst2.sign_request(c_pwd)
+        rqst2.save()
+        #print "\nRQST\n", rqst.pem, "\n"
+        cc_cert = ca_cert.sign_request(rqst2, 300, ca_pwd)
+        cc_cert.save()
+        self.assertTrue(cc_cert.check())
+        # Revoke new
+        ca_cert = Certificate.objects.get(pk=ca_cert.id)
+        cc_cert = Certificate.objects.get(pk=cc_cert.id)
+        ca_cert.revoke(cc_cert, ca_pwd)
+        ca_cert.save()
+        self.assertFalse(cc_cert.check())
         #print ca_cert.index
         #print [ca_cert.index]
         #print ca_cert.crl
