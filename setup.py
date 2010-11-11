@@ -26,7 +26,7 @@ setup(
                     'Framework :: Django',
                     'Intended Audience :: Developers',
                     'Programming Language :: Python',
-                    'Topic :: Software Development :: Libraries :: Python  Modules',
+                    'Topic :: Software Development :: Libraries :: Python Modules',
                 ],
 )
 
