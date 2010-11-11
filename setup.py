@@ -17,11 +17,11 @@ setup(
         author       = 'Johan Charpentier',
         author_email = 'jcharpentier@bearstech.com',
         url          = 'http://github.com/bearstech/django-signature',
-        download_url = '',
+        download_url = 'http://bitbucket.org/bearstech/django-signature/downloads',
         license      = 'GPL v3',
         keywords     = 'django models crypto openssl pki',
         classifiers  = [
-                    'Development Status :: 3 - Alpha Development Status',
+                    'Development Status :: 4 - Beta',
                     'Environment :: Web Environment',
                     'Framework :: Django',
                     'Intended Audience :: Developers',
