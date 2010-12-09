@@ -355,7 +355,7 @@ class Openssl():
 
         serial_re = re.compile('^\s+Serial\sNumber\:\s+(\w+)')
         lines = output.split('\n')
-        serial = "%X" % serial
+        serial = serial
         serial = serial.rjust(2,"0")
 
         for l in lines:

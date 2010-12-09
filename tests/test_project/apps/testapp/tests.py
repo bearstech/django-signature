@@ -214,7 +214,7 @@ class SignaturePKITestCase(TestCase):
         c_cert = ca_cert.sign_request(rqst, 300, ca_pwd)
         c_cert.save()
         #print "\nC_CERT\n", c_cert.pem, "\n"
-        self.assertEqual(c_cert.serial, 2L)
+        self.assertEqual(c_cert.serial, '2')
         self.assertEqual(ca_cert.ca_serial, 2)
         self.assertTrue("Signature ok" not in c_cert.pem)
         self.assertFalse(c_cert.trust)
@@ -377,7 +377,7 @@ class SignaturePKITestCase(TestCase):
         rqst.sign_request(c_pwd)
 
         c_cert = ca_cert.sign_request(rqst, 200, ca_pwd, ca=True)
-        self.assertEqual(c_cert.serial, 2L)
+        self.assertEqual(c_cert.serial, '2')
         self.assertEqual(ca_cert.ca_serial, 2)
 
         # Just test Certificate.m2_x509() method
@@ -407,7 +407,7 @@ class SignaturePKITestCase(TestCase):
         urqst.sign_request()
 
         c2_cert = c_cert.sign_request(urqst, 150, c_pwd)
-        self.assertEqual(c2_cert.serial, 2L)
+        self.assertEqual(c2_cert.serial, '2')
         self.assertEqual(c_cert.ca_serial, 2)
 
         # Just test Certificate.m2_x509() method

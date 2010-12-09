@@ -268,7 +268,7 @@ class Certificate(BaseCert):
     begin = models.DateTimeField(editable=False)
     end = models.DateTimeField(editable=False)
     days = models.IntegerField(null=True)
-    serial = models.PositiveIntegerField(editable=False)
+    serial = models.CharField(max_length=21, editable=False)
     issuer = models.ForeignKey('self', related_name='issuer_set', null=True)
     is_ca = models.BooleanField(default=False)
     ca_serial = models.PositiveIntegerField(null=True, editable=False)
@@ -304,7 +304,7 @@ class Certificate(BaseCert):
         self.pem = pem
         self.certhash = ossl.get_hash_from_cert(pem)
         x509 = X509.load_cert_string(pem, X509.FORMAT_PEM)
-        self.serial = x509.get_serial_number()
+        self.serial = str(x509.get_serial_number())
         self.begin = x509.get_not_before().get_datetime()
         self.end = x509.get_not_after().get_datetime()
         # v3 extensions
@@ -341,7 +341,7 @@ class Certificate(BaseCert):
         c_cert.state = rqst.state
 
         x509 = X509.load_cert_string(pem, X509.FORMAT_PEM)
-        c_cert.serial = x509.get_serial_number()
+        c_cert.serial = str(x509.get_serial_number())
         c_cert.begin = x509.get_not_before().get_datetime()
         c_cert.end = x509.get_not_after().get_datetime()
         # v3 extensions
@@ -380,7 +380,7 @@ class Certificate(BaseCert):
             cert.OU = smart_unicode(issuer.OU)
         if issuer.SP:
             cert.state = smart_unicode(issuer.SP)
-        cert.serial = x509.get_serial_number()
+        cert.serial = str(x509.get_serial_number())
         cert.begin = x509.get_not_before().get_datetime()
         cert.end = x509.get_not_after().get_datetime()
         # v3 extensions
