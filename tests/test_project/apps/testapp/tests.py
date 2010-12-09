@@ -16,6 +16,7 @@ from tempfile import NamedTemporaryFile, TemporaryFile
 from signature.models import Key, Certificate, CertificateRequest, Signature
 from signature.openssl import Openssl
 from certificates import C_KEY, CA_KEY ,C_PUB_KEY, CA_CERT, C_REQUEST, C_CERT, U_CERT, U_KEY, U_REQUEST, UTF8_CERT
+from certificates import C_KEY_PATH, CA_KEY_PATH, C_PUB_KEY_PATH, CA_CERT_PATH, C_REQUEST_PATH, C_CERT_PATH, U_CERT_PATH, U_KEY_PATH, U_REQUEST_PATH, UTF8_CERT_PATH
 
 from models import Author, Whatamess, Book
 
@@ -345,24 +346,26 @@ class SignaturePKITestCase(TestCase):
     def testSignaturePKIca(self):
         """Client certificate is a CA
         """
+        # Turn this to True to regenerate examples certificates
+        save = False
+
         before = datetime(2010, 01, 01, 6, tzinfo=ASN1.UTC)
         after = datetime(2015, 01, 01, 6, tzinfo=ASN1.UTC)
         ca_pwd = "R00tz"
         c_pwd = "1234"
-        c2_pwd = "abcd"
+        #c2_pwd = "abcd"
 
         # CA and Client keys
         ca_key = Key.generate(ca_pwd)
         c_key = Key.generate(c_pwd)
-        c2_key = Key.generate(c2_pwd)
+        c2_key = Key.generate(None)
 
         # CA Cert
         ca_cert = Certificate()
         ca_cert.CN = "Admin"
         ca_cert.country = "FR"
         ca_cert.key = ca_key
-        ca_cert.begin = before
-        ca_cert.end = after
+        ca_cert.days = 3000
         ca_cert.is_ca = True
         ca_cert.generate_x509_root(ca_pwd)
 
@@ -397,13 +400,13 @@ class SignaturePKITestCase(TestCase):
 
 
         # Client's request
-        rqst = CertificateRequest()
-        rqst.CN = "Country Company"
-        rqst.country = "FR"
-        rqst.key = c2_key
-        rqst.sign_request(c2_pwd)
+        urqst = CertificateRequest()
+        urqst.CN = "Country Company"
+        urqst.country = "FR"
+        urqst.key = c2_key
+        urqst.sign_request()
 
-        c2_cert = c_cert.sign_request(rqst, 150, c_pwd)
+        c2_cert = c_cert.sign_request(urqst, 150, c_pwd)
         self.assertEqual(c2_cert.serial, 2L)
         self.assertEqual(c_cert.ca_serial, 2)
 
@@ -422,6 +425,30 @@ class SignaturePKITestCase(TestCase):
         self.assertTrue(c2_cert.subject_kid in m2x509.as_text())
         self.assertTrue(" " not in c2_cert.auth_kid)
         self.assertTrue(" " not in c2_cert.subject_kid)
+
+        # If all tests are goods, lets save it if needed
+        if save:
+            # UTF8 CA Cert
+            utf8_key = Key.generate(ca_pwd)
+            utf8_cert = Certificate()
+            utf8_cert.CN = "Admin ©"
+            utf8_cert.country = "FR"
+            utf8_cert.key = utf8_key
+            utf8_cert.begin = before
+            utf8_cert.end = after
+            utf8_cert.is_ca = True
+            utf8_cert.generate_x509_root(ca_pwd)
+            utf8_cert.save()
+            open(CA_KEY_PATH, 'w').write(ca_key.private)
+            open(C_KEY_PATH, 'w').write(c_key.private)
+            open(U_KEY_PATH, 'w').write(c2_key.private)
+            open(C_PUB_KEY_PATH, 'w').write(c_key.public)
+            open(CA_CERT_PATH, 'w').write(ca_cert.pem)
+            open(C_REQUEST_PATH, 'w').write(rqst.pem)
+            open(C_CERT_PATH, 'w').write(c_cert.pem)
+            open(U_CERT_PATH, 'w').write(c2_cert.pem)
+            open(UTF8_CERT_PATH, 'w').write(utf8_cert.pem)
+            print "SAVED"
 
     def testCertificateChainLoading(self):
         """Load many x509 and check relations

@@ -435,22 +435,8 @@ class Certificate(BaseCert):
         if not self.key:
             raise Exception("No key for this certificate")
 
-        # Set context
-        s = SMIME.SMIME()
-        s.x509 = self.m2_x509()
-        s.pkey = self.key.m2_pkey(passphrase)
-        #buf = BIO.MemoryBuffer()
-        #xx, cb = quiet_passphrase()
-        #self.key.m2_rsa(passphrase).save_key_bio(buf, callback=cb, cipher=xx)
-        #print buf.read()
-        # Sign
-        buf = BIO.MemoryBuffer(text)
-        p7 = s.sign(buf, SMIME.PKCS7_DETACHED)
-        # write content + signature
-        out = BIO.MemoryBuffer()
-        s.write(out, p7, BIO.MemoryBuffer(text))
-        # get data signed
-        data_signed = out.read()
+        ossl = Openssl()
+        data_signed = ossl.sign_pkcs7(self.pem, text, self.key.private, passphrase)
         return data_signed
 
     def get_issued(self):
@@ -579,29 +565,21 @@ class Certificate(BaseCert):
         signed = self.sign_text(serialized, passphrase)
         return signed
 
-    def verify_smime(self, smime):
+    def verify_smime(self, smime, silent=False):
         """Verify an smime signed message
         """
-        # Check
-        #print "Check"
-        s = SMIME.SMIME()
-        # Adds client crt
-        sk = X509.X509_Stack()
-        sk.push(self.m2_x509())
-        s.set_x509_stack(sk)
-        # Adds CA crt
-        st = X509.X509_Store()
-        st.add_cert(self.issuer.m2_x509())
-        s.set_x509_store(st)
+        if not self.key:
+            raise Exception("No key for this certificate")
 
-        # Get data and p7 from data_signed
-        bio_smime = BIO.MemoryBuffer(smime)
-        p7, data = SMIME.smime_load_pkcs7_bio(bio_smime)
-        try:
-            verified = s.verify(p7, data)
-        except SMIME.PKCS7_Error:
-            return False
-        return data.read()
+        ossl = Openssl()
+        if silent:
+            try:
+                data_signed = ossl.verify_pkcs7(self.pem, smime)
+            except ossl.VerifyError:
+                return False
+        else:
+            data_signed = ossl.verify_pkcs7(self.pem, smime)
+        return data_signed
 
     def make_signature(self, instance, passphrase, fields=[], exclude=[]):
         """Sign a Model instance with passphrase

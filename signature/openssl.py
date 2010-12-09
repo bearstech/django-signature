@@ -522,3 +522,86 @@ class Openssl():
         crlpem = open(crlpath, 'r').read()
         index = open(os.path.join(self.tmpdir, "index.txt"), 'r').read()
         return crlpem, index
+
+    @in_temp_dir
+    def sign_pkcs7(self, cert, text, key, certs=[], passphrase=None):
+        """Make pkcs7 with smime
+        """
+        textpath = os.path.join(self.tmpdir, "in.txt")
+        f = open(textpath, 'w')
+        f.write(text)
+        f.close()
+
+        certpath = os.path.join(self.tmpdir, "cert.pem")
+        f = open(certpath, 'w')
+        f.write(cert)
+        f.close()
+
+        keypath = os.path.join(self.tmpdir, "key.pem")
+        f = open(keypath, 'w')
+        f.write(key)
+        f.close()
+
+        #print [open(certpath, 'r').read()]
+
+        # TODO : add extra certificates
+        #certs = "".join([crt.pem for crt in chain ])
+        #extrapath = os.path.join(self.tmpdir, "extra.pem")
+        #f = open(extrapath, 'w')
+        #f.write(certs)
+        #f.close()
+
+        outpath = os.path.join(self.tmpdir, "out.pkcs7")
+
+        command = ['smime', '-sign', '-text',
+                '-in', textpath,
+                '-out', outpath,
+                '-signer', certpath,
+                '-inkey', keypath,
+                '-passin', 'stdin',
+        #        '-certfile', extrapath,
+                  ]
+        result = self.exec_openssl(command, stdin=certs)
+
+        f = open(outpath, 'r')
+
+        return f.read()
+
+    @in_temp_dir
+    def verify_pkcs7(self, cert, smime, certs=[]):
+        """Verify pcks7 smime
+        """
+        textpath = os.path.join(self.tmpdir, "in.pkcs7")
+        f = open(textpath, 'w')
+        f.write(smime)
+        f.close()
+
+        certpath = os.path.join(self.tmpdir, "cert.pem")
+        f = open(certpath, 'w')
+        f.write(cert)
+        f.close()
+
+        #print [open(certpath, 'r').read()]
+
+        # TODO : add extra certificates
+        #certs = "".join([crt.pem for crt in chain ])
+        #extrapath = os.path.join(self.tmpdir, "extra.pem")
+        #f = open(extrapath, 'w')
+        #f.write(certs)
+        #f.close()
+
+        outpath = os.path.join(self.tmpdir, "out.text")
+
+        command = ['smime', '-verify',
+                '-in', textpath,
+                '-out', outpath,
+                '-signer', certpath,
+                '-noverify', certpath,
+        #        '-certfile', extrapath,
+                  ]
+        result = self.exec_openssl(command, stdin=certs)
+
+        f = open(outpath, 'r')
+        data = f.read()
+        header = "Content-Type: text/plain\r\n\r\n"
+        return data[len(header):]
