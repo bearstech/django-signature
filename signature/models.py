@@ -95,7 +95,6 @@ class BaseCert(models.Model):
         self.m2_x509().get_pubkey().get_rsa().save_pub_key_bio(bio)
         return bio.read()
 
-
 def quiet_callback(*args):
         return
 
@@ -235,6 +234,9 @@ class CertificateRequest(BaseCert):
         rqst.created = datetime.now()
         return rqst
 
+    def __unicode__(self):
+        return "CSR %s" % self.get_subject()
+
 class Signature(models.Model):
     """A PKCS#7 signature for a model
     """
@@ -280,6 +282,12 @@ class Certificate(BaseCert):
     trust = models.NullBooleanField(editable=False, null=True)
     certhash = models.CharField(editable=False, max_length=9)
     index = models.TextField(editable=False, default="") # temporary
+
+    def __unicode__(self):
+        if self.is_ca:
+            return "x509 CA %s" % self.get_subject()
+        else:
+            return "x509 %s" % self.get_subject()
 
     class Meta:
         unique_together = (("subject_kid", "serial"))
