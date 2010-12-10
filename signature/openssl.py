@@ -37,6 +37,7 @@ except ImportError:
     from md5 import new as md5_constructor
 
 from django.template.loader import render_to_string
+from django.utils.encoding import smart_str, smart_unicode
 
 logger = getLogger("pki")
 
@@ -204,6 +205,9 @@ class Openssl():
     def exec_openssl(self, command, stdin=None, env_vars=None, cwd=None):
         '''Run openssl command. PKI_OPENSSL_BIN doesn't need to be specified'''
 
+        command = [smart_str(x) for x in command]
+        stdin = smart_str(stdin)
+
         c = [PKI_OPENSSL_BIN]
         c.extend(command)
 
@@ -355,7 +359,6 @@ class Openssl():
 
         serial_re = re.compile('^\s+Serial\sNumber\:\s+(\w+)')
         lines = output.split('\n')
-        serial = serial
         serial = serial.rjust(2,"0")
 
         for l in lines:
