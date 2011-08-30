@@ -1,5 +1,5 @@
 import os
-from setuptools import setup
+from setuptools import setup, find_packages
 
 
 
@@ -7,8 +7,10 @@ readme = open(os.path.join(os.path.dirname(__file__), 'README.rst')).read()
 
 setup(
         name     = 'django-signature',
-        version  = '0.3',
-        packages = ['signature'],
+        version  = '0.3.1',
+        packages = find_packages(exclude=['ez_setup', 'examples', 'test_project']),
+        package_data = {'signature': ["openssl.cnf"]},
+        include_package_data = True,
 
         requires = ['python (>= 2.4)', 'django (>= 1.1)', "M2Crypto (>= 0.18)"],
 
