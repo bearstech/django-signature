@@ -7,7 +7,7 @@ readme = open(os.path.join(os.path.dirname(__file__), 'README.rst')).read()
 
 setup(
         name     = 'django-signature',
-        version  = '0.2',
+        version  = '0.2.1',
         packages = ['signature'],
 
         requires = ['python (>= 2.4)', 'django (>= 1.1)', "M2Crypto (>= 0.18)"],
