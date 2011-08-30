@@ -183,6 +183,15 @@ class Key(models.Model):
                     rqst.save()
         return key
 
+    def check_passphrase(self, passphrase=None):
+        """Return True if passphrase is correct
+        """
+        try:
+            self.m2_rsa(passphrase)
+        except RSA.RSAError:
+            return False
+        return True
+
 class CertificateRequest(BaseCert):
     """A CSR
     """

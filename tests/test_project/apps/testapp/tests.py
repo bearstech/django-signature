@@ -624,6 +624,11 @@ class SignatureTestCase(TestCase):
         self.ca_cert = Certificate.objects.get(id=ca_cert.id)
         self.c_cert = Certificate.objects.get(id=c_cert.id)
 
+    def testCheckpassphrase(self):
+        """Check passphrase
+        """
+        self.assertTrue(self.c_key.check_passphrase(self.c_pwd))
+        self.assertFalse(self.c_key.check_passphrase("falsepwd"))
 
     def testBasicTextPKCS7(self):
         """Try to sign a basic text
